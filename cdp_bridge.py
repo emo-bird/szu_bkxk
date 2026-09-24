@@ -49,6 +49,7 @@ class CapturedResponse:
     :ivar mime: 响应内容类型。
     :ivar body: 响应正文（完整，未截断）。
     :ivar request_id: CDP 的请求 id，便于排查。
+    :ivar request_body: 对应的请求体（表单字符串），用于还原 ``querySetting`` 等参数。
     """
 
     url: str
@@ -56,6 +57,7 @@ class CapturedResponse:
     mime: str = ""
     body: str = ""
     request_id: str = ""
+    request_body: str = ""
 
     @property
     def endpoint(self) -> str:
@@ -72,6 +74,38 @@ class CapturedResponse:
         except (json.JSONDecodeError, TypeError):
             return None
         return data if isinstance(data, dict) else None
+
+    def query_setting(self) -> dict[str, Any] | None:
+        """从请求体中解析出 ``querySetting`` 参数并转为字典。
+
+        :return: ``querySetting`` 字典；解析失败返回 ``None``。
+        """
+        if not self.request_body:
+            return None
+        for pair in self.request_body.split("&"):
+            if not pair.startswith("querySetting="):
+                continue
+            raw = pair[len("querySetting=") :]
+            try:
+                from urllib.parse import unquote
+
+                return json.loads(unquote(raw))
+            except (json.JSONDecodeError, TypeError, ValueError):
+                return None
+        return None
+
+    def teaching_class_type(self) -> str:
+        """返回本次查询使用的 ``teachingClassType``（如 ``FANKC``）。
+
+        :return: 类别代码；无法确定时返回空串。
+        """
+        setting = self.query_setting()
+        if not isinstance(setting, dict):
+            return ""
+        data = setting.get("data")
+        if isinstance(data, dict):
+            return str(data.get("teachingClassType", "") or "")
+        return ""
 
 
 class CdpClient:
@@ -94,6 +128,7 @@ class CdpClient:
         self.pending: dict[int, asyncio.Future[dict]] = {}
         self.events: list[dict] = []
         self._fetched: set[str] = set()
+        self._requests: dict[str, str] = {}
 
     # -- 生命周期 -----------------------------------------------------------
     async def __aenter__(self) -> "CdpClient":
@@ -162,6 +197,35 @@ class CdpClient:
         await self.call("Page.enable")
         await self.call("Network.enable")
         await self.call("Runtime.enable")
+
+    async def add_binding(self, name: str) -> None:
+        """注册一个 JS → Python 的通信绑定。
+
+        注册后页面里会出现同名函数 ``window.<name>(字符串)``，
+        JS 调用它时本端会收到 ``Runtime.bindingCalled`` 事件，
+        可用 :meth:`take_bindings` 取走负载。
+
+        :param name: 绑定函数名（建议用不易冲突的前缀）。
+        """
+        await self.call("Runtime.addBinding", {"name": name})
+
+    def take_bindings(self, name: str) -> list[str]:
+        """取出并清空指定绑定函数的调用负载。
+
+        :param name: :meth:`add_binding` 注册的名字。
+        :return: 每次调用传入的字符串负载列表。
+        """
+        payloads: list[str] = []
+        keep: list[dict] = []
+        for item in self.events:
+            if item.get("method") == "Runtime.bindingCalled":
+                params = item.get("params", {})
+                if params.get("name") == name:
+                    payloads.append(str(params.get("payload", "")))
+                    continue
+            keep.append(item)
+        self.events = keep
+        return payloads
 
     async def navigate(self, url: str) -> None:
         """导航到指定地址。
@@ -243,10 +307,20 @@ class CdpClient:
         .. note::
            响应体会被浏览器回收，因此必须在事件到达后尽快抓取；
            本方法对同一 ``requestId`` 只抓一次。
+           同时会把请求体（``Network.requestWillBeSent`` 的 postData）关联过来，
+           便于还原 ``querySetting`` 里的 ``teachingClassType`` 等参数。
 
         :param want_do_only: 只处理 ``.do`` 结尾的接口响应。
         :return: 本次新捕获到的响应列表。
         """
+        # 先登记请求体，后面按 requestId 关联
+        for event in self.drain("Network.requestWillBeSent"):
+            params = event.get("params", {})
+            request = params.get("request", {})
+            post_data = request.get("postData")
+            if post_data:
+                self._requests[str(params.get("requestId", ""))] = str(post_data)
+
         results: list[CapturedResponse] = []
         for event in self.drain("Network.responseReceived"):
             params = event.get("params", {})
@@ -260,15 +334,15 @@ class CdpClient:
                 status=int(response.get("status", 0) or 0),
                 mime=str(response.get("mimeType", "")),
                 request_id=request_id,
+                request_body=self._requests.get(request_id, ""),
             )
             if request_id and request_id not in self._fetched:
                 self._fetched.add(request_id)
                 try:
                     got = await self.call("Network.getResponseBody", {"requestId": request_id}, timeout=8)
                     item.body = str(got.get("result", {}).get("body", ""))
-                except Exception as exc:  # noqa: BLE001 - 响应体可能已被回收
+                except Exception:  # noqa: BLE001 - 响应体可能已被回收
                     item.body = ""
-                    _ = exc
             results.append(item)
         return results
 
