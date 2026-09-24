@@ -6,8 +6,8 @@
 禁止绕过队列直接调用 aiohttp。
 
 硬性限流约束（对应需求文档第三节标签页2第 4 条）：
-    - 每 ``config.REQUEST_INTERVAL_MS``（201ms）从队列取出 1 条请求执行，
-      等价「1 秒内最多 5 条请求」；
+    - 每 ``config.REQUEST_INTERVAL_MS``（500ms）从队列取出 1 条请求执行，
+      等价「1 秒内最多 2 条请求」；
     - 队列最大待处理请求数量 ``config.MAX_QUEUE_SIZE``（10），
       已满时**拒绝加入**新请求并输出日志告警，不阻塞 UI；
     - 请求优先级：用户手动触发的 UI 操作（``config.PRIORITY_HIGH``）优先于
@@ -100,7 +100,7 @@ class RequestQueue:
         """初始化请求队列（此时尚未开始调度）。
 
         :param logger: 日志器，``None`` 表示不记录日志。
-        :param interval_ms: 两条请求之间的最小调度间隔（毫秒），默认 201ms。
+        :param interval_ms: 两条请求之间的最小调度间隔（毫秒），默认 500ms。
         :param max_size: 队列最大待处理数量，默认 10。
         """
         self._logger = logger
