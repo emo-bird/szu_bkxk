@@ -55,6 +55,9 @@ EP_COURSE_RESULT: str = "xsxkapp/sys/xsxkapp/elective/courseResult.do"
 EP_VOLUNTEER: str = "xsxkapp/sys/xsxkapp/elective/volunteer.do"
 # 选课入口页（备查，本工具不实现登录）
 EP_INDEX: str = "xsxkapp/sys/xsxkapp/*default/index.do"
+# 选课子页面：站点 JS 实测「必须带 token 参数」才能进入
+# 见 index.min.js: window.location.href = BaseUrl + "/sys/xsxkapp/*default/grablessons.do?token=" + sessionStorage.token
+EP_GRABLESSONS_PAGE: str = "xsxkapp/sys/xsxkapp/*default/grablessons.do"
 
 # teachingClassType 取值与中文名
 TEACHING_CLASS_TYPES: dict[str, str] = {
@@ -178,4 +181,7 @@ DEFAULT_HEADERS: dict[str, str] = {
     "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
     "Host": "bkxk.szu.edu.cn",
     "Pragma": "no-cache",
+    # 站点 jQuery 默认携带；带上后未登录会返回 401 而不是静默跳转到首页，
+    # 便于程序准确判定「登录态失效」
+    "X-Requested-With": "XMLHttpRequest",
 }

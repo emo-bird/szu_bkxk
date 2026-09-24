@@ -37,7 +37,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 import config
 import course_model as cm
-from api_client import ApiClient, ApiError, MissingCredentialsError
+from api_client import ApiClient, ApiError, MissingCredentialsError, NotAuthenticatedError
 from logger_util import Logger
 from request_queue import QueueFullError
 
@@ -472,6 +472,16 @@ class GrabTaskRunner:
         except MissingCredentialsError as exc:
             task.status = TaskStatus.STOPPED
             task.last_message = f"凭证缺失，任务已停止：{exc}"
+            self._notify(task)
+            return False
+        except NotAuthenticatedError as exc:
+            task.status = TaskStatus.STOPPED
+            task.last_message = f"登录态已失效，任务已停止：{exc}"
+            self._logger.warning(
+                config.SOURCE_TASK,
+                f"任务 {task.display_name} {task.last_message}",
+                config.CATEGORY_FAILURE,
+            )
             self._notify(task)
             return False
         except (ApiError, QueueFullError) as exc:

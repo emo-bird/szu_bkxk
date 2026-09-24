@@ -29,6 +29,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
+from urllib.parse import quote
 
 import aiohttp
 
@@ -40,6 +41,15 @@ from request_queue import RequestQueue
 
 class ApiError(RuntimeError):
     """接口调用失败（网络异常、非 200 响应、响应体不是合法 JSON 等）。"""
+
+
+class NotAuthenticatedError(ApiError):
+    """登录态失效：服务器把请求重定向到首页、返回 401，或直接返回 HTML 页面。
+
+    站点实测行为：cookie/token 失效时，普通请求返回 ``302 → *default/index.do``；
+    带 ``X-Requested-With`` 的 AJAX 请求返回 ``401`` 并伴随 HTML 错误页。
+    捕获本异常时应提示用户重新从浏览器复制 cookie 与 token。
+    """
 
 
 class MissingCredentialsError(RuntimeError):
@@ -70,6 +80,27 @@ def current_millis() -> str:
     :return: 例如 ``"1730000000000"``。
     """
     return str(int(time.time() * 1000))
+
+
+def build_elective_page_url(credentials: Credentials) -> str:
+    """构造「跳转选课网页」的完整 URL（携带 token 查询参数）。
+
+    站点 JS 实测（``index.min.js``）::
+
+        t = BaseUrl + "/sys/xsxkapp/*default/grablessons.do?token=" + sessionStorage.token
+        window.location.href = t
+
+    即选课子页面**必须通过 URL 携带 token** 才能正常进入；新开的浏览器标签页没有
+    ``sessionStorage``，只能靠 URL 传参还原登录上下文。
+
+    :param credentials: 已规整的身份凭证；``token`` 为空时返回不带 token 的地址。
+    :return: 可直接交给系统默认浏览器打开的完整 URL。
+    """
+    url = config.BASE_URL + config.EP_GRABLESSONS_PAGE
+    token = credentials.token.strip()
+    if not token:
+        return url
+    return f"{url}?token={quote(token)}"
 
 
 def build_query_setting(
@@ -294,7 +325,7 @@ class ApiClient:
             config.CATEGORY_QUERY,
         )
         text = await self._queue.submit(
-            lambda: self._post_form(path, form_data, headers),
+            lambda: self._post_form(path, form_data, headers, params={"timestamp": current_millis()}),
             priority,
             name=f"课程查询-{teaching_class_type}-p{page_number}",
         )
@@ -433,10 +464,23 @@ class ApiClient:
                 data=form_data or None,
                 headers=headers,
                 params=params,
+                allow_redirects=False,
             ) as response:
+                status = response.status
+                location = response.headers.get("Location", "")
                 text = await response.text()
-                if response.status != 200:
-                    raise ApiError(f"接口返回状态码 {response.status}：{text[:200]}")
+                if status in (301, 302, 303, 307, 308):
+                    raise NotAuthenticatedError(
+                        f"服务器将请求重定向到 {location or '首页'}，判定为登录态失效；"
+                        f"请在浏览器重新登录后复制最新 cookie 与 token。"
+                    )
+                if status == 401:
+                    raise NotAuthenticatedError(
+                        "接口返回 401（未认证），判定为登录态失效；"
+                        "请在浏览器重新登录后复制最新 cookie 与 token。"
+                    )
+                if status != 200:
+                    raise ApiError(f"接口返回状态码 {status}：{text[:200]}")
                 return text
         except aiohttp.ClientError as exc:
             raise ApiError(f"网络请求异常：{exc}") from exc
@@ -446,11 +490,21 @@ class ApiClient:
     def _parse_json(self, text: str, action: str) -> dict[str, Any]:
         """把响应文本解析为 JSON 字典。
 
+        若返回的是 HTML 页面（登录态失效时服务器会返回首页或错误页），
+        统一抛出 :class:`NotAuthenticatedError`，给出可操作的提示。
+
         :param text: 接口响应文本。
         :param action: 动作描述，用于错误文案。
         :return: 解析后的字典。
+        :raises NotAuthenticatedError: 响应为 HTML 页面，说明未通过认证。
         :raises ApiError: 响应不是合法 JSON 对象。
         """
+        stripped = text.lstrip()
+        if stripped.startswith("<") or "<!DOCTYPE" in text[:200]:
+            raise NotAuthenticatedError(
+                f"{action} 返回的是网页而不是接口数据，判定为登录态失效"
+                f"（cookie / token 已过期或复制不完整），请在浏览器重新登录后重新复制凭证。"
+            )
         try:
             data = json.loads(text)
         except json.JSONDecodeError as exc:
