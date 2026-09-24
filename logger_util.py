@@ -188,7 +188,7 @@ class Logger:
         category: str = config.CATEGORY_SYSTEM,
         level: str = config.LEVEL_INFO,
     ) -> LogRecord:
-        """记录一条日志：先落盘，再按过滤规则推送到 UI。
+        """记录一条日志：先落盘，再推送到 UI（过滤由日志面板负责展示与否）。
 
         :param source: 来源模块，建议使用 ``config.SOURCE_*`` 常量。
         :param message: 日志正文。
@@ -206,8 +206,11 @@ class Logger:
         with self._lock:
             self._write_to_file(record)
             sink = self._ui_sink
-            visible = self._filter.accept(record)
-        if sink is not None and visible:
+        # 分类过滤**只作用于界面展示**：这里一律推送给界面，由日志面板按
+        # ``self._filter`` 决定是否显示。若在推送前就挡掉，面板拿不到被过滤的条目，
+        # 勾选/取消勾选时就无法重绘历史内容（这正是原先「筛选勾了没反应」的原因）。
+        # 日志文件始终记录全部分类。
+        if sink is not None:
             try:
                 sink(record)
             except Exception as exc:  # noqa: BLE001 - UI 回调异常不能影响业务

@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import webbrowser
+from collections import deque
 from typing import Any, Callable, Coroutine
 from urllib.parse import quote
 
@@ -879,6 +880,9 @@ class LogPanel(QWidget):
         super().__init__(parent)
         self._logger = logger
         self._category_boxes: dict[str, QCheckBox] = {}
+        #: 面板缓存的全量日志。过滤**只影响显示**，因此必须留全量才能真正重绘：
+        #: 取消勾选后重新勾选要能恢复历史条目。限长与视图一致，防止内存膨胀。
+        self._records: deque[LogRecord] = deque(maxlen=config.UI_LOG_MAX_LINES)
 
         self.view = QPlainTextEdit()
         self.view.setReadOnly(True)
@@ -908,7 +912,7 @@ class LogPanel(QWidget):
         layout.addWidget(self.view, 1)
         layout.addWidget(self.path_label)
 
-        self.clear_button.clicked.connect(self.view.clear)
+        self.clear_button.clicked.connect(self._clear)
 
     def _on_toggle(self, category: str, checked: bool) -> None:
         """切换某个日志分类的界面展示开关。
@@ -918,6 +922,7 @@ class LogPanel(QWidget):
         :return: ``None``
         """
         self._logger.filter.set_category_enabled(category, checked)
+        self._rerender()
 
     def append_record(self, record: LogRecord) -> None:
         """把一条日志追加到面板（由 Qt 信号在主线程调用）。
@@ -925,7 +930,28 @@ class LogPanel(QWidget):
         :param record: 日志记录。
         :return: ``None``
         """
-        self.view.appendPlainText(record.formatted())
+        self._records.append(record)
+        if self._logger.filter.accept(record):
+            self.view.appendPlainText(record.formatted())
+
+    def _rerender(self) -> None:
+        """按当前过滤状态重绘整个视图（尽量保留原滚动位置）。
+
+        :return: ``None``
+        """
+        bar = self.view.verticalScrollBar()
+        previous = bar.value()
+        visible = [record.formatted() for record in self._records if self._logger.filter.accept(record)]
+        self.view.setPlainText("\n".join(visible))
+        bar.setValue(min(previous, bar.maximum()))
+
+    def _clear(self) -> None:
+        """清空面板显示与缓存。
+
+        :return: ``None``
+        """
+        self._records.clear()
+        self.view.clear()
 
     def category_filter_state(self) -> dict[str, bool]:
         """返回各分类复选框的当前勾选状态，便于自检与调试。

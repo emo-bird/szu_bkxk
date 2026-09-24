@@ -262,8 +262,9 @@ QUERY_MAX_PAGES: int = _as_int(SETTINGS.get("query_max_pages"), 5, minimum=1, ma
 # 全局限流常量【硬性约束，勿随意调小】
 # ---------------------------------------------------------------------------
 # 单条请求最小调度间隔（毫秒）的**硬下限**：不允许通过设置文件调低到该值以下。
-# 依据：实测高频请求会导致会话被踢出，500ms（≤2 请求/秒）是验证过的安全水位。
-REQUEST_INTERVAL_FLOOR_MS: int = 500
+# 默认值仍是 500ms（≤2 请求/秒，实测验证过的安全水位）；下限放宽到 200ms 是为了
+# 允许在明确知情时调低，但 200ms（5 请求/秒）有被风控/踢出会话的风险，请谨慎。
+REQUEST_INTERVAL_FLOOR_MS: int = 200
 # 单条请求最小调度间隔（毫秒）：1 秒内最多 2 条请求
 REQUEST_INTERVAL_MS: int = _as_int(SETTINGS.get("request_interval_ms"), 500, minimum=REQUEST_INTERVAL_FLOOR_MS)
 # 请求队列最大待处理请求数量上限，超出直接丢弃
