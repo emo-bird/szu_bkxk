@@ -416,9 +416,13 @@ class CourseQueryPanel(QWidget):
 
 
 class TaskDialog(QDialog):
-    """抢课任务的新增 / 修改对话框。
+    """新增/修改任务的对话框：**按任务类型展示不同字段**。
 
-    支持从当前课程列表一键带出课程信息，也可完全手工填写。
+    · 单志愿抢课：课程名称 / 教师 / 课程号 / 课程总号 / 教学班ID / 类别 / 轮询间隔 / 满课策略；
+    · 多志愿监控：备注名称 / 监控教学班清单（一行一个教学班ID）/ 轮询间隔。
+
+    监控清单里**不需要**填类别：教学班ID 全局唯一，类别由程序在启动时自动识别
+    （先查本地课程缓存，再逐类别试探）。
     """
 
     def __init__(
@@ -426,6 +430,7 @@ class TaskDialog(QDialog):
         task: tm.GrabTask | None,
         courses: list[cm.Course],
         logger: Logger,
+        kind: str | None = None,
         parent: QWidget | None = None,
     ) -> None:
         """构建对话框。
@@ -433,44 +438,55 @@ class TaskDialog(QDialog):
         :param task: 待修改的任务；``None`` 表示新增任务。
         :param courses: 供下拉选择的课程列表（可能为空）。
         :param logger: 日志器，用于输出轮询间隔钳位告警。
+        :param kind: 任务类型；``None`` 时取待修改任务的类型，新增时默认单志愿抢课。
         :param parent: 父控件。
         """
         super().__init__(parent)
-        self.setWindowTitle("修改抢课任务" if task is not None else "新增抢课任务")
-        self.setMinimumWidth(560)
         self._logger = logger
         self._editing = task
         self._courses = list(courses)
+        self._kind = kind or (task.kind if task is not None else config.TASK_KIND_GRAB)
+        self._is_monitor = self._kind == config.TASK_KIND_MONITOR
+        kind_text = config.TASK_KIND_TEXT.get(self._kind, self._kind)
+        self.setWindowTitle(f"{'修改' if task is not None else '新增'}{kind_text}任务")
+        self.setMinimumWidth(620)
+        #: 教学班 ID → 类别：取自课程列表，用于给监控清单自动补上类别
+        self._type_by_id: dict[str, str] = {
+            course.teaching_class_id: (course.teaching_class_type or course.course_category)
+            for course in self._courses
+            if course.teaching_class_id
+        }
 
         self.course_picker = QComboBox()
         self.course_picker.addItem("（可选）从课程列表选择…", -1)
         for index, course in enumerate(self._courses):
-            label = (
-                f"{course.course_name}｜{course.teacher_name}｜"
-                f"{course.teaching_class_id}｜{course.capacity_text()}"
-            )
-            self.course_picker.addItem(label, index)
+            parts = [course.course_name or "（未命名课程）"]
+            if course.teacher_name:
+                parts.append(f"教师 {course.teacher_name}")
+            if course.course_number:
+                parts.append(f"课程号 {course.course_number}")
+            if course.teaching_class_id:
+                parts.append(f"教学班ID {course.teaching_class_id}")
+            parts.append(f"容量 {course.capacity_text()}")
+            self.course_picker.addItem(" ｜ ".join(parts), index)
 
         self.course_name = QLineEdit()
         self.teacher_name = QLineEdit()
         self.course_number = QLineEdit()
         self.course_total_number = QLineEdit()
         self.teaching_class_id = QLineEdit()
-        self.kind_combo = QComboBox()
-        for kind_code in (config.TASK_KIND_GRAB, config.TASK_KIND_MONITOR):
-            self.kind_combo.addItem(config.TASK_KIND_TEXT.get(kind_code, kind_code), kind_code)
-
-        self.monitor_edit = QPlainTextEdit()
-        self.monitor_edit.setPlaceholderText(
-            "每行一个教学班：教学班ID 或 教学班ID,类别代码"
-        )
-        self.monitor_edit.setFixedHeight(88)
-        self.monitor_edit.setEnabled(False)
         self.teaching_class_id.setPlaceholderText("例如 202620271130068000203（抢课提交的目标）")
 
         self.type_combo = QComboBox()
         for code, name in config.TEACHING_CLASS_TYPES.items():
             self.type_combo.addItem(f"{name}({code})", code)
+
+        self.monitor_edit = QPlainTextEdit()
+        self.monitor_edit.setPlaceholderText(
+            "每行一个教学班ID（可从上方课程列表连续选择追加），例如：\n"
+            "202620271130086001108\n202620271280100005201"
+        )
+        self.monitor_edit.setFixedHeight(96)
 
         self.interval_spin = QSpinBox()
         self.interval_spin.setRange(1, 600_000)
@@ -481,31 +497,34 @@ class TaskDialog(QDialog):
         self.stop_when_full.setChecked(True)
 
         form = QFormLayout()
-        form.addRow("任务类型", self.kind_combo)
-        form.addRow("监控教学班", self.monitor_edit)
         form.addRow("从课程列表选择", self.course_picker)
-        form.addRow("课程名称", self.course_name)
-        form.addRow("教师", self.teacher_name)
-        form.addRow("课程号", self.course_number)
-        form.addRow("课程总号", self.course_total_number)
-        form.addRow("教学班ID", self.teaching_class_id)
-        form.addRow("课程类别", self.type_combo)
-        form.addRow(f"轮询间隔（下限 {config.MIN_POLL_INTERVAL_MS}ms）", self.interval_spin)
-        form.addRow("满课后策略", self.stop_when_full)
-        hint = QLabel(
-            f"轮询间隔小于 {config.MIN_POLL_INTERVAL_MS}ms 会被自动钳位；"
-            f"勾选「{tm.FULL_STOP_TEXT}」表示课程已满即停止本任务，"
-            f"取消勾选则为「{tm.FULL_CONTINUE_TEXT}」，等待放量。"
-        )
+        if self._is_monitor:
+            form.addRow("备注名称", self.course_name)
+            form.addRow("监控教学班", self.monitor_edit)
+            form.addRow(f"轮询间隔（下限 {config.MIN_POLL_INTERVAL_MS}ms）", self.interval_spin)
+            hint = QLabel(
+                "适用场景：有多个候选志愿、不知道哪个先释放容量。\n"
+                "每轮只刷新这些教学班**所属的类别**并逐个检查容量；命中的第一个用最高优先级插队提交，"
+                "其余按普通优先级；任意一个提交成功即任务结束，被业务拒绝则顺延下一个；"
+                "**不会因为满课而停止**（监控本身就是等放量）。\n"
+                "只需要填教学班ID —— 类别由程序自动识别（教学班ID 全局唯一）。"
+            )
+        else:
+            form.addRow("课程名称", self.course_name)
+            form.addRow("教师", self.teacher_name)
+            form.addRow("课程号", self.course_number)
+            form.addRow("课程总号", self.course_total_number)
+            form.addRow("教学班ID", self.teaching_class_id)
+            form.addRow("课程类别", self.type_combo)
+            form.addRow(f"轮询间隔（下限 {config.MIN_POLL_INTERVAL_MS}ms）", self.interval_spin)
+            form.addRow("满课后策略", self.stop_when_full)
+            hint = QLabel(
+                "适用场景：只想要这一个志愿、不知道容量何时释放。\n"
+                f"轮询间隔小于 {config.MIN_POLL_INTERVAL_MS}ms 会被自动钳位；"
+                f"勾选「{tm.FULL_STOP_TEXT}」表示课程已满即停止本任务，"
+                f"取消勾选则为「{tm.FULL_CONTINUE_TEXT}」，等待放量。"
+            )
         hint.setWordWrap(True)
-        kind_hint = QLabel(
-            "单志愿抢课：只想要这一个志愿、不知道容量何时释放 —— 按上面的教学班ID轮询。\n"
-            "多志愿监控：有多个候选志愿、不知道哪个先释放容量 —— 每行填一个教学班ID，"
-            "每轮只刷新它们所属的类别；命中的第一个用最高优先级插队提交，其余按普通优先级；"
-            "任意一个成功即结束，且不会因满课停止。"
-        )
-        kind_hint.setWordWrap(True)
-        form.addRow(kind_hint)
         form.addRow(hint)
 
         buttons = QDialogButtonBox(
@@ -519,54 +538,38 @@ class TaskDialog(QDialog):
         layout.addWidget(buttons)
 
         self.course_picker.currentIndexChanged.connect(self._on_pick_course)
-        self.kind_combo.currentIndexChanged.connect(self._on_kind_changed)
-        self._on_kind_changed()
         if task is not None:
             self._load(task)
 
-    def _current_kind(self) -> str:
-        """返回当前选择的任务类型代码。
-
-        :return: ``config.TASK_KIND_*`` 之一。
-        """
-        return str(self.kind_combo.currentData() or config.TASK_KIND_GRAB)
-
+    # -- 输入解析 -----------------------------------------------------------
     def _parse_monitor_lines(self) -> list[dict[str, str]]:
         """把多行输入解析为监控目标列表。
 
-        每行格式：``教学班ID`` 或 ``教学班ID,类别代码``；分隔符支持逗号、空格、制表符。
-        未写类别时留空，运行时用课程缓存或任务默认类别补全。
+        每行取第一个字段作为教学班ID（兼容早期「教学班ID,类别代码」写法）；
+        类别能查到的会自动补上，查不到留空，交给运行时自动识别。
 
         :return: 去重后的目标列表（保持填写顺序，上限 ``config.MONITOR_MAX_CLASSES``）。
         """
         raw: list[dict[str, str]] = []
         for line in self.monitor_edit.toPlainText().splitlines():
-            parts = [piece for piece in re.split(r"[,\uff0c\s]+", line.strip()) if piece]
-            if not parts:
+            pieces = [piece for piece in re.split(r"[,\uff0c\s]+", line.strip()) if piece]
+            if not pieces:
                 continue
+            tc_id = pieces[0]
             raw.append(
                 {
-                    "teachingClassId": parts[0],
-                    "teachingClassType": parts[1] if len(parts) > 1 else "",
+                    "teachingClassId": tc_id,
+                    "teachingClassType": self._type_by_id.get(tc_id, ""),
                 }
             )
         return tm.parse_monitor_targets(raw)
 
-    def _on_kind_changed(self) -> None:
-        """任务类型切换时调整控件可用状态。
-
-        监控任务不因满课停止，因此切换过去时强制取消「满课后停止」并禁用该复选框。
-
-        :return: ``None``
-        """
-        is_monitor = self._current_kind() == config.TASK_KIND_MONITOR
-        self.monitor_edit.setEnabled(is_monitor)
-        if is_monitor:
-            self.stop_when_full.setChecked(False)
-        self.stop_when_full.setEnabled(not is_monitor)
-
+    # -- 交互 ---------------------------------------------------------------
     def _on_pick_course(self, index: int) -> None:
-        """从课程列表选择后自动填充各输入框。
+        """从课程列表选择后的填充逻辑。
+
+        监控类型下**追加**教学班 ID 到清单（便于连续挑选多个），不覆盖已有内容。
+        非监控类型下用该课程信息填充表单。
 
         :param index: 下拉框当前索引。
         :return: ``None``
@@ -575,6 +578,14 @@ class TaskDialog(QDialog):
         if data is None or not isinstance(data, int) or data < 0 or data >= len(self._courses):
             return
         course = self._courses[data]
+        if self._is_monitor:
+            existing = {item["teachingClassId"] for item in self._parse_monitor_lines()}
+            if course.teaching_class_id and course.teaching_class_id not in existing:
+                self.monitor_edit.appendPlainText(course.teaching_class_id)
+            if not self.course_name.text().strip():
+                self.course_name.setText(course.course_name)
+            self.course_picker.setCurrentIndex(0)  # 复位，方便继续追加下一个
+            return
         self.course_name.setText(course.course_name)
         self.teacher_name.setText(course.teacher_name)
         self.course_number.setText(course.course_number)
@@ -585,19 +596,15 @@ class TaskDialog(QDialog):
     def _select_type(self, value: str) -> None:
         """按类别代码或中文名选中类别下拉项。
 
-        :param value: 类别代码（如 ``FANKC``）或中文名。
+        :param value: 类别代码或中文名。
         :return: ``None``
         """
-        if not value:
-            return
-        index = self.type_combo.findData(value)
-        if index < 0:
-            for row in range(self.type_combo.count()):
-                if value in self.type_combo.itemText(row):
-                    index = row
-                    break
-        if index >= 0:
-            self.type_combo.setCurrentIndex(index)
+        for index in range(self.type_combo.count()):
+            code = str(self.type_combo.itemData(index))
+            name = self.type_combo.itemText(index)
+            if value and (value == code or value == name or value in name):
+                self.type_combo.setCurrentIndex(index)
+                return
 
     def _load(self, task: tm.GrabTask) -> None:
         """把待修改任务的字段填充到界面。
@@ -606,23 +613,15 @@ class TaskDialog(QDialog):
         :return: ``None``
         """
         self.course_name.setText(task.course_name)
+        self.interval_spin.setValue(max(task.poll_interval_ms, 1))
+        if self._is_monitor:
+            self.monitor_edit.setPlainText("\n".join(task.monitor_ids))
+            return
         self.teacher_name.setText(task.teacher_name)
         self.course_number.setText(task.course_number)
         self.course_total_number.setText(task.course_total_number)
         self.teaching_class_id.setText(task.teaching_class_id)
         self._select_type(task.teaching_class_type)
-        for position in range(self.kind_combo.count()):
-            if self.kind_combo.itemData(position) == task.kind:
-                self.kind_combo.setCurrentIndex(position)
-                break
-        self.monitor_edit.setPlainText(
-            "\n".join(
-                ",".join(filter(None, [item.get("teachingClassId", ""), item.get("teachingClassType", "")]))
-                for item in task.monitor_targets
-            )
-        )
-        self._on_kind_changed()
-        self.interval_spin.setValue(max(task.poll_interval_ms, 1))
         self.stop_when_full.setChecked(task.stop_when_full)
 
     def accept(self) -> None:
@@ -630,12 +629,12 @@ class TaskDialog(QDialog):
 
         :return: ``None``
         """
-        if self._current_kind() == config.TASK_KIND_MONITOR:
+        if self._is_monitor:
             if not self._parse_monitor_lines():
                 QMessageBox.warning(
                     self,
                     "参数不完整",
-                    "监控任务至少需要一个教学班 ID（每行一个，可写成「教学班ID,类别代码」）。",
+                    "监控任务至少需要一个教学班 ID（每行一个，可从上方课程列表连续选择追加）。",
                 )
                 return
         elif not self.teaching_class_id.text().strip():
@@ -654,65 +653,68 @@ class TaskDialog(QDialog):
         :return: 新增或修改后的 :class:`task_model.GrabTask`。
         """
         task = self._editing if self._editing is not None else tm.GrabTask()
+        task.kind = self._kind
         task.course_name = self.course_name.text().strip()
-        task.teacher_name = self.teacher_name.text().strip()
-        task.course_number = self.course_number.text().strip()
-        task.course_total_number = self.course_total_number.text().strip()
-        task.teaching_class_id = self.teaching_class_id.text().strip()
-        task.kind = self._current_kind()
-        task.monitor_targets = self._parse_monitor_lines() if task.is_monitor else []
-        task.teaching_class_type = str(self.type_combo.currentData() or "FANKC")
         task.poll_interval_ms = self.interval_spin.value()
-        task.stop_when_full = self.stop_when_full.isChecked()
         task.clamp_interval(self._logger)
+        if self._is_monitor:
+            task.monitor_targets = self._parse_monitor_lines()
+            task.teaching_class_id = ""
+            task.stop_when_full = False
+            if self._editing is None:
+                task.last_message = f"已创建监控任务，共 {len(task.monitor_targets)} 个候选教学班"
+        else:
+            task.monitor_targets = []
+            task.teacher_name = self.teacher_name.text().strip()
+            task.course_number = self.course_number.text().strip()
+            task.course_total_number = self.course_total_number.text().strip()
+            task.teaching_class_id = self.teaching_class_id.text().strip()
+            task.teaching_class_type = str(self.type_combo.currentData() or "FANKC")
+            task.stop_when_full = self.stop_when_full.isChecked()
+            if self._editing is None:
+                task.last_message = "任务已创建，尚未启动"
         if self._editing is None:
             task.status = tm.TaskStatus.STOPPED
-            task.last_message = "任务已创建，尚未启动"
         return task
 
 
-class TaskPanel(QWidget):
-    """标签页2：抢课任务管理器。
+class TaskTable(QWidget):
+    """**单一任务类型**的列表：表头与字段按类型不同，并带自己的一组操作按钮。
 
-    负责任务的展示与增删改，并把「启动 / 停止」动作交由 :class:`MainWindow`
-    投递到异步事件循环执行；本面板不直接调用网络层。
+    本控件不直接调用网络层：启动/停止通过信号交给 :class:`MainWindow`
+    投递到异步事件循环。
     """
 
     #: 请求启动任务（参数为 :class:`task_model.GrabTask`）
     startTaskRequested = pyqtSignal(object)
     #: 请求停止任务（参数为 :class:`task_model.GrabTask`）
     stopTaskRequested = pyqtSignal(object)
-    #: 任务列表发生变化，需要持久化（参数为任务列表）
+    #: 本列表的成员发生变化，需要持久化（参数为本类型的任务列表）
     tasksChanged = pyqtSignal(list)
 
     def __init__(
         self,
         logger: Logger,
+        kind: str,
         course_provider: Callable[[], list[cm.Course]] | None = None,
         parent: QWidget | None = None,
     ) -> None:
-        """构建任务管理面板。
+        """构建列表。
 
         :param logger: 日志器。
-        :param course_provider: 返回当前课程列表的函数，用于在新增任务时提供下拉候选。
+        :param kind: 本列表负责的任务类型。
+        :param course_provider: 供对话框下拉选择的课程列表提供者。
         :param parent: 父控件。
         """
         super().__init__(parent)
         self._logger = logger
+        self._kind = kind
         self._course_provider = course_provider
         self._tasks: list[tm.GrabTask] = []
+        kind_text = config.TASK_KIND_TEXT.get(kind, kind)
 
-        self.add_button = QPushButton("新增任务")
-        self.edit_button = QPushButton("修改任务")
-        self.delete_button = QPushButton("删除任务")
-        self.start_button = QPushButton("启动任务")
-        self.stop_button = QPushButton("停止任务")
-        self.stop_all_button = QPushButton("全部停止")
-
-        self.status_label = QLabel("暂无任务")
-
-        self.table = QTableWidget(0, len(tm.TASK_COLUMNS))
-        self.table.setHorizontalHeaderLabels([title for _, title in tm.TASK_COLUMNS])
+        self.table = QTableWidget(0, len(tm.MONITOR_TASK_COLUMNS if kind == config.TASK_KIND_MONITOR else tm.GRAB_TASK_COLUMNS))
+        self.table.setHorizontalHeaderLabels([title for _, title in tm.TASK_KIND_COLUMNS[kind]])
         self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -722,22 +724,31 @@ class TaskPanel(QWidget):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.doubleClicked.connect(lambda _index: self.on_edit())
 
-        toolbar = QHBoxLayout()
-        for button in (
-            self.add_button,
-            self.edit_button,
-            self.delete_button,
-            self.start_button,
-            self.stop_button,
-            self.stop_all_button,
-        ):
-            toolbar.addWidget(button)
-        toolbar.addStretch(1)
+        self.add_button = QPushButton(f"新建{kind_text}任务")
+        self.edit_button = QPushButton("修改")
+        self.delete_button = QPushButton("删除")
+        self.start_button = QPushButton("启动")
+        self.stop_button = QPushButton("停止")
+        self.stop_all_button = QPushButton("全部停止")
+        self.summary_label = QLabel()
 
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(self.add_button)
+        toolbar.addWidget(self.edit_button)
+        toolbar.addWidget(self.delete_button)
+        toolbar.addSpacing(12)
+        toolbar.addWidget(self.start_button)
+        toolbar.addWidget(self.stop_button)
+        toolbar.addWidget(self.stop_all_button)
+        toolbar.addStretch(1)
+        toolbar.addWidget(self.summary_label)
+
+        title = QLabel(f"<b>{kind_text}</b>")
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.addWidget(title)
         layout.addLayout(toolbar)
         layout.addWidget(self.table, 1)
-        layout.addWidget(self.status_label)
 
         self.add_button.clicked.connect(self.on_add)
         self.edit_button.clicked.connect(self.on_edit)
@@ -745,49 +756,160 @@ class TaskPanel(QWidget):
         self.start_button.clicked.connect(self.on_start)
         self.stop_button.clicked.connect(self.on_stop)
         self.stop_all_button.clicked.connect(self.on_stop_all)
+        self._update_summary()
 
     # -- 数据 ---------------------------------------------------------------
     def tasks(self) -> list[tm.GrabTask]:
-        """返回当前全部任务对象（**返回内部列表本身**，供主窗口持久化）。
+        """返回本列表的任务。
 
         :return: 任务列表。
         """
-        return self._tasks
+        return list(self._tasks)
 
     def set_tasks(self, tasks: list[tm.GrabTask]) -> None:
-        """整体替换任务列表并重建表格。
+        """整体替换本列表的任务（只取本类型）。
 
-        :param tasks: 任务列表。
+        :param tasks: 任务列表（可含其它类型，会被过滤）。
         :return: ``None``
         """
-        self._tasks = list(tasks)
+        is_monitor = self._kind == config.TASK_KIND_MONITOR
+        self._tasks = [task for task in tasks if task.is_monitor == is_monitor]
         self._rebuild()
 
-    def update_task(self, task: tm.GrabTask) -> None:
-        """刷新某个任务在表格中的展示（按任务 ID 定位行）。
+    def add_task(self, task: tm.GrabTask) -> None:
+        """把一个任务加入本列表并持久化。
 
-        :param task: 状态已变化的任务对象。
+        :param task: 任务对象；类型与本列表不符时忽略。
+        :return: ``None``
+        """
+        if task.is_monitor != (self._kind == config.TASK_KIND_MONITOR):
+            return
+        self._tasks.append(task)
+        self._rebuild()
+        self.tasksChanged.emit(self.tasks())
+        self._logger.info(config.SOURCE_TASK, f"已新增任务：{task.display_name}", config.CATEGORY_SYSTEM)
+
+    def update_task(self, task: tm.GrabTask) -> None:
+        """刷新某个任务的展示行。
+
+        :param task: 发生变化的任务。
         :return: ``None``
         """
         for row, current in enumerate(self._tasks):
             if current.task_id == task.task_id:
-                self._fill_row(row, current)
+                self._fill_row(row, task)
                 self._update_summary()
                 return
 
-    def current_task(self) -> tm.GrabTask | None:
+    def selected_task(self) -> tm.GrabTask | None:
         """返回当前选中的任务。
 
-        :return: 选中的任务对象；未选中时返回 ``None``。
+        :return: 选中的任务；未选中时返回 ``None``。
         """
         row = self.table.currentRow()
         if 0 <= row < len(self._tasks):
             return self._tasks[row]
         return None
 
-    # -- 表格 ---------------------------------------------------------------
+    # -- 动作 ---------------------------------------------------------------
+    def on_add(self) -> None:
+        """新建本类型的任务。
+
+        :return: ``None``
+        """
+        dialog = TaskDialog(None, self._courses(), self._logger, kind=self._kind, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.add_task(dialog.result_task())
+
+    def on_edit(self) -> None:
+        """修改选中的任务。
+
+        :return: ``None``
+        """
+        task = self.selected_task()
+        if task is None:
+            QMessageBox.information(self, "未选择", "请先在列表中选中一个任务。")
+            return
+        dialog = TaskDialog(task, self._courses(), self._logger, kind=self._kind, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        updated = dialog.result_task()
+        self._rebuild()
+        self.tasksChanged.emit(self.tasks())
+        self._logger.info(config.SOURCE_TASK, f"已更新任务：{updated.display_name}", config.CATEGORY_SYSTEM)
+
+    def on_delete(self) -> None:
+        """删除选中的任务。
+
+        :return: ``None``
+        """
+        task = self.selected_task()
+        if task is None:
+            QMessageBox.information(self, "未选择", "请先在列表中选中一个任务。")
+            return
+        if task.status is tm.TaskStatus.RUNNING:
+            QMessageBox.warning(self, "任务运行中", "请先停止该任务再删除。")
+            return
+        if QMessageBox.question(self, "确认删除", f"确定删除任务「{task.display_name}」？") != QMessageBox.StandardButton.Yes:
+            return
+        self._tasks = [item for item in self._tasks if item.task_id != task.task_id]
+        self._rebuild()
+        self.tasksChanged.emit(self.tasks())
+        self._logger.info(config.SOURCE_TASK, f"已删除任务：{task.display_name}", config.CATEGORY_SYSTEM)
+
+    def on_start(self) -> None:
+        """启动选中的任务。
+
+        :return: ``None``
+        """
+        task = self.selected_task()
+        if task is None:
+            QMessageBox.information(self, "未选择", "请先在列表中选中一个任务。")
+            return
+        if task.status is tm.TaskStatus.RUNNING:
+            QMessageBox.information(self, "已在运行", "该任务已在运行中。")
+            return
+        self.startTaskRequested.emit(task)
+
+    def on_stop(self) -> None:
+        """停止选中的任务。
+
+        :return: ``None``
+        """
+        task = self.selected_task()
+        if task is None:
+            QMessageBox.information(self, "未选择", "请先在列表中选中一个任务。")
+            return
+        self.stopTaskRequested.emit(task)
+
+    def on_stop_all(self) -> None:
+        """停止本列表中的全部任务。
+
+        :return: ``None``
+        """
+        running = [task for task in self._tasks if task.status is tm.TaskStatus.RUNNING]
+        if not running:
+            QMessageBox.information(self, "无需停止", "本列表中没有正在运行的任务。")
+            return
+        for task in running:
+            self.stopTaskRequested.emit(task)
+
+    def _courses(self) -> list[cm.Course]:
+        """返回可选的课程列表。
+
+        :return: 课程列表；提供者缺失时返回空列表。
+        """
+        if self._course_provider is None:
+            return []
+        try:
+            return list(self._course_provider())
+        except Exception:  # noqa: BLE001 - 候选列表失败不应阻塞建任务
+            return []
+
+    # -- 渲染 ---------------------------------------------------------------
     def _rebuild(self) -> None:
-        """重建整个任务表格。
+        """重建整张表。
 
         :return: ``None``
         """
@@ -798,16 +920,17 @@ class TaskPanel(QWidget):
         self._update_summary()
 
     def _fill_row(self, row: int, task: tm.GrabTask) -> None:
-        """填充表格中的一行任务数据。
+        """填充一行任务数据。
 
         :param row: 行号。
         :param task: 任务对象。
         :return: ``None``
         """
-        for column, text in enumerate(task.row_values()):
-            item = QTableWidgetItem(text)
-            item.setToolTip(text)
-            if tm.TASK_COLUMNS[column][0] == "status_text":
+        columns = task.columns()
+        for column, value in enumerate(task.row_values()):
+            item = QTableWidgetItem(value)
+            item.setToolTip(value)
+            if columns[column][0] == "status_text":
                 item.setForeground(QBrush(self._status_color(task.status)))
             self.table.setItem(row, column, item)
 
@@ -816,137 +939,109 @@ class TaskPanel(QWidget):
         """返回任务状态对应的显示颜色。
 
         :param status: 任务状态。
-        :return: 状态文字颜色。
+        :return: 颜色对象。
         """
         if status is tm.TaskStatus.SUCCESS:
             return QColor("#1a7f37")
         if status is tm.TaskStatus.RUNNING:
-            return QColor("#0b5cad")
+            return QColor("#0969da")
         if status is tm.TaskStatus.FAILED:
-            return QColor("#b42318")
+            return QColor("#cf222e")
         return QColor("#57606a")
 
     def _update_summary(self) -> None:
-        """刷新底部状态说明。
+        """刷新右下角的统计文案。
 
         :return: ``None``
         """
-        if not self._tasks:
-            self.status_label.setText("暂无任务。手动启动的任务不会在程序重启后自动运行。")
-            return
         running = sum(1 for task in self._tasks if task.status is tm.TaskStatus.RUNNING)
-        self.status_label.setText(
-            f"共 {len(self._tasks)} 个任务，运行中 {running} 个；"
-            f"网络请求统一经全局限流队列（间隔 {config.REQUEST_INTERVAL_MS}ms，上限 {config.MAX_QUEUE_SIZE} 条）。"
+        success = sum(1 for task in self._tasks if task.status is tm.TaskStatus.SUCCESS)
+        self.summary_label.setText(
+            f"共 {len(self._tasks)} 个任务｜运行中 {running}｜抢课成功 {success}"
         )
 
-    # -- 动作 ---------------------------------------------------------------
-    def on_add(self) -> None:
-        """新增任务。
 
+class TaskPanel(QWidget):
+    """标签页2：抢课任务管理器。
+
+    **两种任务类型各有独立列表与按钮**，字段也各自不同：
+
+    * 单志愿抢课列表：课程号 / 教学班ID / 类别 / 满课策略 等；
+    * 多志愿监控列表：监控教学班清单 / 命中教学班 等。
+    """
+
+    #: 请求启动任务（参数为 :class:`task_model.GrabTask`）
+    startTaskRequested = pyqtSignal(object)
+    #: 请求停止任务（参数为 :class:`task_model.GrabTask`）
+    stopTaskRequested = pyqtSignal(object)
+    #: 任务列表发生变化，需要持久化（参数为全部任务）
+    tasksChanged = pyqtSignal(list)
+
+    def __init__(
+        self,
+        logger: Logger,
+        course_provider: Callable[[], list[cm.Course]] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        """构建面板。
+
+        :param logger: 日志器。
+        :param course_provider: 供新建/修改对话框下拉选择的课程列表提供者。
+        :param parent: 父控件。
+        """
+        super().__init__(parent)
+        self._logger = logger
+        self.grab_table = TaskTable(logger, config.TASK_KIND_GRAB, course_provider, self)
+        self.monitor_table = TaskTable(logger, config.TASK_KIND_MONITOR, course_provider, self)
+
+        for table in (self.grab_table, self.monitor_table):
+            table.startTaskRequested.connect(self.startTaskRequested.emit)
+            table.stopTaskRequested.connect(self.stopTaskRequested.emit)
+            table.tasksChanged.connect(self._on_table_changed)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.grab_table, 1)
+        layout.addWidget(self.monitor_table, 1)
+
+    def tasks(self) -> list[tm.GrabTask]:
+        """返回全部任务（两种类型合并）。
+
+        :return: 任务列表。
+        """
+        return self.grab_table.tasks() + self.monitor_table.tasks()
+
+    def set_tasks(self, tasks: list[tm.GrabTask]) -> None:
+        """整体替换任务列表。
+
+        :param tasks: 任务列表（按类型自动分发到两个列表）。
         :return: ``None``
         """
-        dialog = TaskDialog(None, self._course_candidates(), self._logger, self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        task = dialog.result_task()
-        self.add_task(task)
+        self.grab_table.set_tasks(tasks)
+        self.monitor_table.set_tasks(tasks)
 
     def add_task(self, task: tm.GrabTask) -> None:
-        """把一个已构造好的任务加入列表并持久化。
+        """新增任务（按类型分发）。
 
-        供「新增任务」对话框与内嵌网页的「+ 添加到抢课任务」共用。
-
-        :param task: 待加入的任务对象。
+        :param task: 任务对象。
         :return: ``None``
         """
-        self._tasks.append(task)
-        self._rebuild()
-        self.tasksChanged.emit(self._tasks)
-        self._logger.info(config.SOURCE_TASK, f"已新增抢课任务：{task.display_name}", config.CATEGORY_SYSTEM)
+        (self.monitor_table if task.is_monitor else self.grab_table).add_task(task)
 
-    def on_edit(self) -> None:
-        """修改选中的任务。
+    def update_task(self, task: tm.GrabTask) -> None:
+        """刷新某任务的展示行（按类型分发）。
 
+        :param task: 发生变化的任务。
         :return: ``None``
         """
-        task = self.current_task()
-        if task is None:
-            QMessageBox.information(self, "提示", "请先选中要修改的任务。")
-            return
-        dialog = TaskDialog(task, self._course_candidates(), self._logger, self)
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            return
-        dialog.result_task()
-        self._rebuild()
-        self.tasksChanged.emit(self._tasks)
-        self._logger.info(config.SOURCE_TASK, f"已修改抢课任务：{task.display_name}", config.CATEGORY_SYSTEM)
+        (self.monitor_table if task.is_monitor else self.grab_table).update_task(task)
 
-    def on_delete(self) -> None:
-        """删除选中的任务（运行中的任务会先被请求停止）。
+    def _on_table_changed(self, _tasks: list[tm.GrabTask]) -> None:
+        """任一列表变化时，向外广播全部任务以便持久化。
 
+        :param _tasks: 变化列表（未使用，统一取全量）。
         :return: ``None``
         """
-        task = self.current_task()
-        if task is None:
-            QMessageBox.information(self, "提示", "请先选中要删除的任务。")
-            return
-        answer = QMessageBox.question(self, "确认删除", f"确定删除任务「{task.display_name}」吗？")
-        if answer != QMessageBox.StandardButton.Yes:
-            return
-        if task.status is tm.TaskStatus.RUNNING:
-            self.stopTaskRequested.emit(task)
-        self._tasks.remove(task)
-        self._rebuild()
-        self.tasksChanged.emit(self._tasks)
-        self._logger.info(config.SOURCE_TASK, f"已删除抢课任务：{task.display_name}", config.CATEGORY_SYSTEM)
-
-    def on_start(self) -> None:
-        """启动选中的任务。
-
-        :return: ``None``
-        """
-        task = self.current_task()
-        if task is None:
-            QMessageBox.information(self, "提示", "请先选中要启动的任务。")
-            return
-        if not task.teaching_class_id.strip():
-            QMessageBox.warning(self, "参数不完整", "该任务没有教学班 ID，无法启动。")
-            return
-        self.startTaskRequested.emit(task)
-
-    def on_stop(self) -> None:
-        """停止选中的任务。
-
-        :return: ``None``
-        """
-        task = self.current_task()
-        if task is None:
-            QMessageBox.information(self, "提示", "请先选中要停止的任务。")
-            return
-        self.stopTaskRequested.emit(task)
-
-    def on_stop_all(self) -> None:
-        """停止全部任务。
-
-        :return: ``None``
-        """
-        for task in list(self._tasks):
-            if task.status is tm.TaskStatus.RUNNING:
-                self.stopTaskRequested.emit(task)
-
-    def _course_candidates(self) -> list[cm.Course]:
-        """获取课程下拉候选。
-
-        :return: 当前课程列表；未提供 provider 时返回空列表。
-        """
-        if self._course_provider is None:
-            return []
-        try:
-            return self._course_provider()
-        except Exception as exc:  # noqa: BLE001 - 候选列表失败不影响新增任务
-            self._logger.warning(config.SOURCE_TASK, f"读取课程候选失败：{exc}", config.CATEGORY_SYSTEM)
-            return []
+        self.tasksChanged.emit(self.tasks())
 
 
 class LogPanel(QWidget):

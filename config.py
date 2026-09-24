@@ -186,7 +186,7 @@ WRITE_API_SOURCE: str = (
 # 应用信息
 # ---------------------------------------------------------------------------
 APP_NAME: str = "深大选课辅助工具"
-APP_VERSION: str = "0.3.0"
+APP_VERSION: str = "0.3.1"
 
 # 启动风险提示弹窗正文，main.py 直接复用，避免文案分散
 RISK_WARNING_TEXT: str = (

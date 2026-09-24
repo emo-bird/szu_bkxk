@@ -61,15 +61,14 @@ STATUS_TEXT: dict[TaskStatus, str] = {
     TaskStatus.FAILED: "异常失败",
 }
 
-#: 表格列定义：``(取值方式, 表头)``；取值方式为 :class:`GrabTask` 的属性名或方法名。
-TASK_COLUMNS: tuple[tuple[str, str], ...] = (
+#: 「单志愿抢课」表格列定义：``(取值方式, 表头)``；取值方式为 :class:`GrabTask` 的属性名。
+GRAB_TASK_COLUMNS: tuple[tuple[str, str], ...] = (
     ("short_id", "任务ID"),
-    ("kind_text", "任务类型"),
     ("course_name", "课程名称"),
     ("teacher_name", "教师"),
     ("course_number", "课程号"),
     ("course_total_number", "课程总号"),
-    ("target_text", "教学班ID"),
+    ("teaching_class_id", "教学班ID"),
     ("type_text", "类别"),
     ("interval_text", "轮询间隔"),
     ("full_policy_text", "满课策略"),
@@ -77,6 +76,27 @@ TASK_COLUMNS: tuple[tuple[str, str], ...] = (
     ("attempts", "尝试次数"),
     ("last_message", "最近消息"),
 )
+
+#: 「多志愿监控」表格列定义：与抓取任务**字段不同** —— 展示监控清单与命中结果。
+MONITOR_TASK_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("short_id", "任务ID"),
+    ("course_name", "备注名称"),
+    ("monitor_ids_text", "监控教学班ID"),
+    ("interval_text", "轮询间隔"),
+    ("status_text", "状态"),
+    ("attempts", "尝试次数"),
+    ("teaching_class_id", "命中教学班"),
+    ("last_message", "最近消息"),
+)
+
+#: 兼容旧引用：默认取「单志愿抢课」的列定义
+TASK_COLUMNS: tuple[tuple[str, str], ...] = GRAB_TASK_COLUMNS
+
+#: 任务类型 → 表格列定义（界面按类型渲染不同字段）
+TASK_KIND_COLUMNS: dict[str, tuple[tuple[str, str], ...]] = {
+    config.TASK_KIND_GRAB: GRAB_TASK_COLUMNS,
+    config.TASK_KIND_MONITOR: MONITOR_TASK_COLUMNS,
+}
 
 #: 监控类任务的策略文案（监控不因满课停止）
 MONITOR_TEXT: str = "持续监控（不因满课停止）"
@@ -173,6 +193,18 @@ class GrabTask:
         return [str(item.get("teachingClassId") or "").strip() for item in self.monitor_targets]
 
     @property
+    def monitor_ids_text(self) -> str:
+        """监控清单的展示文本（供表格与日志使用）。"""
+        return "、".join(self.monitor_ids)
+
+    def columns(self) -> tuple[tuple[str, str], ...]:
+        """返回本任务类型对应的表格列定义。
+
+        :return: 抓取任务用 :data:`GRAB_TASK_COLUMNS`，监控任务用 :data:`MONITOR_TASK_COLUMNS`。
+        """
+        return MONITOR_TASK_COLUMNS if self.is_monitor else GRAB_TASK_COLUMNS
+
+    @property
     def target_text(self) -> str:
         """返回界面上「教学班ID」列的展示文本。"""
         if self.is_monitor:
@@ -206,7 +238,7 @@ class GrabTask:
 
         :return: 与表头一一对应的字符串列表。
         """
-        return [str(getattr(self, name, "")) for name, _ in TASK_COLUMNS]
+        return [str(getattr(self, name, "")) for name, _ in self.columns()]
 
     def clamp_interval(self, logger: Logger | None = None) -> bool:
         """把本任务的轮询间隔钳位到合法下限。
@@ -295,18 +327,18 @@ def parse_monitor_targets(raw: object) -> list[dict[str, str]]:
     targets: list[dict[str, str]] = []
     seen: set[str] = set()
     for item in raw:
-        if not isinstance(item, Mapping):
+        if isinstance(item, Mapping):
+            tc_id = str(item.get("teachingClassId") or "").strip()
+            class_type = str(item.get("teachingClassType") or "").strip()
+        elif isinstance(item, str):
+            tc_id = item.strip()
+            class_type = ""
+        else:
             continue
-        tc_id = str(item.get("teachingClassId") or "").strip()
         if not tc_id or tc_id in seen:
             continue
         seen.add(tc_id)
-        targets.append(
-            {
-                "teachingClassId": tc_id,
-                "teachingClassType": str(item.get("teachingClassType") or "").strip(),
-            }
-        )
+        targets.append({"teachingClassId": tc_id, "teachingClassType": class_type})
         if len(targets) >= config.MONITOR_MAX_CLASSES:
             break
     return targets
@@ -551,6 +583,45 @@ class GrabTaskRunner:
             self._type_cache = mapping
         return self._type_cache
 
+    async def _resolve_class_type(self, tc_id: str) -> str:
+        """确定教学班所属类别（用户无需手填）。
+
+        顺序：本地课程缓存 → 运行时已探测结果 → 逐个类别试探（每个教学班只做一次，
+        结果写回缓存）。全部试不出时返回空串，调用方会把它计入「无法确定类别」并提示。
+
+        :param tc_id: 教学班 ID。
+        :return: 类别代码；无法确定时为空串。
+        """
+        cache = self._monitor_type_cache()
+        if cache.get(tc_id):
+            return cache[tc_id]
+        for class_type in config.COURSE_QUERY_PLAN:
+            try:
+                response = await self._client.query_courses(
+                    class_type,
+                    page_number=config.QUERY_FIRST_PAGE,
+                    priority=config.PRIORITY_HIGH,
+                )
+            except NotAuthenticatedError:
+                raise
+            except (ApiError, QueueFullError, MissingCredentialsError) as exc:
+                self._logger.warning(
+                    config.SOURCE_TASK,
+                    f"探测教学班 {tc_id} 类别时查询 {class_type} 失败：{exc}",
+                    config.CATEGORY_FAILURE,
+                )
+                continue
+            if cm.extract_capacity(response, tc_id) is not None:
+                cache[tc_id] = class_type
+                self._logger.info(
+                    config.SOURCE_TASK,
+                    f"已自动识别教学班 {tc_id} 的类别：{class_type}"
+                    f"（{config.TEACHING_CLASS_TYPES.get(class_type, class_type)}）",
+                    config.CATEGORY_SYSTEM,
+                )
+                return class_type
+        return ""
+
     async def _poll_monitor_once(self, task: GrabTask) -> bool:
         """监控类任务的一次轮询：刷新所属类别容量 → 命中则按优先级抢课。
 
@@ -566,22 +637,41 @@ class GrabTaskRunner:
         :return: 需要继续轮询返回 ``True``；任务应当结束返回 ``False``。
         """
         task.attempts += 1
-        type_cache = self._monitor_type_cache()
         resolved: list[tuple[str, str]] = []
-        grouped: dict[str, list[str]] = {}
+        unresolved: list[str] = []
         for raw in task.monitor_targets:
             tc_id = str(raw.get("teachingClassId") or "").strip()
             if not tc_id:
                 continue
-            class_type = (
-                str(raw.get("teachingClassType") or "").strip()
-                or type_cache.get(tc_id, "")
-                or task.teaching_class_type
-            )
+            class_type = str(raw.get("teachingClassType") or "").strip()
+            if not class_type:
+                class_type = await self._resolve_class_type(tc_id)
+                if not class_type:
+                    unresolved.append(tc_id)
+                    continue
+                raw["teachingClassType"] = class_type
             resolved.append((tc_id, class_type))
+
+        if unresolved:
+            self._logger.warning(
+                config.SOURCE_TASK,
+                f"以下教学班无法确定所属类别，本轮跳过（可先在「课程查询」刷新一次课程列表）："
+                f"{'、'.join(unresolved)}",
+                config.CATEGORY_SYSTEM,
+            )
+        grouped: dict[str, list[str]] = {}
+        for tc_id, class_type in resolved:
             grouped.setdefault(class_type, []).append(tc_id)
 
         if not resolved:
+            if task.monitor_targets:
+                # 有监控目标但类别识别不出来：**不要停止**，提示用户刷新课程列表后等下一轮自愈
+                task.last_message = (
+                    f"无法确定类别：{'、'.join(unresolved) or '（目标为空）'}；"
+                    f"可先在「课程查询」刷新一次课程列表，程序会自动识别后再继续监控"
+                )
+                self._notify(task)
+                return True
             task.status = TaskStatus.STOPPED
             task.last_message = "未配置任何监控教学班，任务已停止"
             self._notify(task)
@@ -627,7 +717,9 @@ class GrabTaskRunner:
             f"{len(hits)} 个有余量"
         )
         if missing:
-            summary += f"，{len(missing)} 个未在类别结果中找到（请核对类别）"
+            summary += f"，{len(missing)} 个未在类别结果中找到"
+        if unresolved:
+            summary += f"，{len(unresolved)} 个无法确定类别（已跳过）"
         task.last_message = summary
         self._notify(task)
         self._logger.info(config.SOURCE_TASK, f"任务 {task.display_name} {summary}", config.CATEGORY_QUERY)
@@ -765,9 +857,12 @@ __all__ = [
     "FULL_STOP_TEXT",
     "STATUS_TEXT",
     "TASK_COLUMNS",
+    "TASK_KIND_COLUMNS",
     "GrabTask",
     "GrabTaskRunner",
     "TaskStatus",
+    "GRAB_TASK_COLUMNS",
+    "MONITOR_TASK_COLUMNS",
     "MONITOR_TEXT",
     "clamp_poll_interval",
     "load_tasks",
