@@ -34,7 +34,11 @@
 | P5 | `course_model.py` + 标签页1 课程查询面板 | ✅ 完成 |
 | P6 | `task_model.py` + 标签页2 抢课任务管理器 | ✅ 完成 |
 | P7 | 标签页3 日志面板、`main.py` 入口与风险弹窗 | ✅ 完成 |
-| P8 | 课程收藏接口 | ⏸ **待浏览器抓包样本** |
+| P8 | 课程收藏接口 | ⏸ **TODO：待抓包样本**（见 [`docs/TODO.md`](docs/TODO.md)） |
+
+> **接口取证**：端点路径、token 传递位置、登录态失效时的服务器行为等，均已用**真实只读请求**
+> 验证并记录在 [`docs/接口逆向记录.md`](docs/接口逆向记录.md)。
+> 其中「跳转选课网页必须携带 token」已由站点 JS 原文证实。
 
 > 接口字段与路径来自参考仓库 `szu/` 的逆向结论，**尚未经过浏览器抓包校验**；
 > 代码中所有未校验点均标注 `TODO(抓包校验)`，课程字段解析采用多候选字段的容错映射
@@ -117,7 +121,8 @@ szu_bkxk/
 ├─ task_model.py      抢课任务模型、持久化、轮询执行器
 ├─ ui_main.py         PyQt6 主窗口、三个标签页、信号槽与跨线程调度
 ├─ main.py            入口：风险弹窗、模块初始化、Qt + asyncio 双事件循环
-├─ docs/              需求文档与开发准备（含接口清单、待确认问题）
+├─ tools/             只读接口探测工具（probe_api.py，凭证走环境变量、不落盘）
+├─ docs/              需求文档、开发准备、接口逆向记录、TODO
 └─ szu/               参考仓库（只读参考，已在 .gitignore 排除）
 ```
 
@@ -134,8 +139,18 @@ course_model}`，`ui_main` 不构造任何 http 报文。
 
 ## 八、接口清单
 
-完整报文模板、字段映射推测与校验状态见 [`docs/开发准备.md`](docs/开发准备.md) 第四节。
-**收藏接口在参考仓库中缺失，尚未逆向。**
+完整报文模板、字段映射推测与校验状态见 [`docs/开发准备.md`](docs/开发准备.md) 第四节；
+真实探测所得的服务器行为证据见 [`docs/接口逆向记录.md`](docs/接口逆向记录.md)。
+**收藏接口在参考仓库中缺失，尚未逆向（已列入 TODO）。**
+
+已实测确认的关键结论：
+
+1. 端点基路径 `xsxkapp/sys/xsxkapp/` **正确**（`elective/batch.do`、`publicinfo/sysparam.do`
+   返回 200 JSON）；
+2. 接口调用的 token 走 **HTTP 请求头 `token`**，且每个接口 URL 需附加 `?timestamp=<毫秒>`；
+3. **页面跳转**的 token 走 **URL query**：`*default/grablessons.do?token=<token>`；
+4. 登录态失效时服务器 **302 → 首页**（普通请求）或 **401 + HTML**（AJAX 请求），
+   程序已据此准确报错，不再误报为 JSON 解析错误。
 
 ## 九、本地文件
 
@@ -153,3 +168,31 @@ course_model}`，`ui_main` 不构造任何 http 报文。
 2. 每个模块、类、公开函数均需文档字符串，说明入参、返回值与功能。
 3. 数据持久化统一 JSON，读写均捕获异常并写日志，不因 IO 错误崩溃。
 4. 每完成一块独立功能单独提交一次 git commit，提交信息说明本次变更内容。
+
+## 十一、环境问题修复记录：shell 执行无需再提权
+
+**现象**：本会话中任何 shell / 代码执行请求都直接失败，报
+`SetNamedSecurityInfoW failed (Win32 5): grantWrite(C:\Project\szu_bkxk)`，
+且不论工作目录设为何处都相同。
+
+**根因**：工作区目录的 DACL 中存在一条异常访问控制项
+（`NT AUTHORITY\Authenticated Users  Allow  -536805376`，权限位无法解析），
+导致沙箱为工作区「授予写权限」的调用被系统拒绝（Win32 5 = 拒绝访问）。
+与虚拟环境无关 —— `.venv` 本身是正常的（aiohttp 安装与全部自动化测试都跑通）。
+
+**修复**（已执行，无需再次操作）：
+
+```powershell
+# 1) 备份原 DACL（便于回滚）
+icacls C:\Project\szu_bkxk /save "$env:TEMP\szu_bkxk_dacl_backup.txt"
+# 2) 为当前用户显式授予完全控制（含继承）
+icacls C:\Project\szu_bkxk /grant "<用户名>:(OI)(CI)F"
+```
+
+如需回滚：
+
+```powershell
+icacls C:\Project /restore "$env:TEMP\szu_bkxk_dacl_backup.txt"
+```
+
+**结论**：`.venv` **无需重建**；shell 与代码执行已恢复正常。
