@@ -238,4 +238,4 @@ _edge_*.log
 vendor/
 
 # WebView2 运行期 profile（含登录态，绝不入库）
-.webview2_profile/
+.webview2_profile*/

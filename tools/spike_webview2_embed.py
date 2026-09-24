@@ -40,6 +40,7 @@ import pathlib
 import sys
 import threading
 import time
+import traceback
 
 # pythonnet 在本机必须走 .NET Core 运行时（默认 netfx 会加载失败），
 # 且必须在 import clr 之前设置。
@@ -164,6 +165,37 @@ def make_rect(x: int, y: int, width: int, height: int):
         return System.Drawing.Rectangle(x, y, width, height)
     except Exception:  # noqa: BLE001
         return (x, y, width, height)
+
+
+def to_intptr(value: int):
+    """把 Python int 转成 .NET ``System.IntPtr``。
+
+    pythonnet **不做** int → IntPtr 的隐式转换，直接传 int 会报
+    ``'int' value cannot be converted to System.IntPtr``，因此必须显式构造。
+
+    :param value: 原生窗口句柄数值。
+    :return: ``System.IntPtr`` 实例。
+    """
+    import System
+
+    return System.IntPtr(value)
+
+
+def ensure_com_initialized() -> None:
+    """确保当前线程已初始化 COM（WebView2 要求 STA 套间）。
+
+    Qt 通常已在 GUI 线程初始化过 COM，所以正常运行时无需干预；
+    这里做一次幂等兜底，避免换调用场景时出现
+    ``CO_E_NOTINITIALIZED (0x800401F0): 尚未调用 CoInitialize``。
+    任何失败都忽略——真正的错误会在后续调用中显式暴露。
+    """
+    try:
+        import ctypes
+
+        # COINIT_APARTMENTTHREADED = 2；返回 S_OK/S_FALSE/RPC_E_CHANGED_MODE 均不做处理
+        ctypes.windll.ole32.CoInitializeEx(None, 2)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def run_cdp_checks(results: dict[str, bool], state: dict) -> None:
@@ -340,6 +372,7 @@ def main() -> int:
     options = CoreWebView2EnvironmentOptions()
     options.AdditionalBrowserArguments = f"--remote-debugging-port={DEBUG_PORT}"
     PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_com_initialized()
     state["env_task"] = CoreWebView2Environment.CreateAsync(None, str(PROFILE_DIR), options)
 
     def poll() -> None:
@@ -347,37 +380,46 @@ def main() -> int:
 
         刻意不使用阻塞等待：WebView2 的异步创建依赖调用线程的消息泵，
         阻塞会死锁，因此靠 Qt 事件循环持续泵消息并用定时器轮询完成状态。
+
+        .. note::
+           本函数是 Qt 槽函数，**必须吞掉所有异常** —— PyQt 对槽函数里逸出的
+           未捕获异常会直接 ``abort()``，表现为「界面突然消失」。
         """
-        env_task = state.get("env_task")
-        ctl_task = state.get("ctl_task")
-        if env_task is not None and env_task.IsCompleted:
-            state["env_task"] = None
-            try:
-                environment = env_task.Result
-            except Exception as exc:  # noqa: BLE001
-                state["error"] = f"CreateAsync 失败：{exc}"
-                return
-            print("    CreateAsync 完成，正在创建 Controller …")
-            state["ctl_task"] = environment.CreateCoreWebView2ControllerAsync(hwnd)
-        elif ctl_task is not None and ctl_task.IsCompleted:
-            state["ctl_task"] = None
-            try:
-                controller = ctl_task.Result
-            except Exception as exc:  # noqa: BLE001
-                state["error"] = f"CreateControllerAsync 失败：{exc}"
-                return
-            state["controller"] = controller
-            try:
-                controller.IsVisible = True
-            except Exception:  # noqa: BLE001
-                pass
-            apply_bounds()
-            results["WebView2 内嵌到 Qt 窗口"] = True
-            hint.setText("内嵌 WebView2 已就绪，请完成登录")
-            print("    [OK] Controller 创建成功，Bounds 已同步")
-            controller.CoreWebView2.Navigate(GRAB_URL)
-            threading.Thread(target=run_cdp_checks, args=(results, state), daemon=True).start()
+        try:
+            env_task = state.get("env_task")
+            ctl_task = state.get("ctl_task")
+            if env_task is not None and env_task.IsCompleted:
+                state["env_task"] = None
+                try:
+                    environment = env_task.Result
+                except Exception as exc:  # noqa: BLE001
+                    raise RuntimeError(f"CreateAsync 失败：{exc}") from exc
+                print("    CreateAsync 完成，正在创建 Controller …")
+                state["ctl_task"] = environment.CreateCoreWebView2ControllerAsync(to_intptr(hwnd))
+            elif ctl_task is not None and ctl_task.IsCompleted:
+                state["ctl_task"] = None
+                try:
+                    controller = ctl_task.Result
+                except Exception as exc:  # noqa: BLE001
+                    raise RuntimeError(f"CreateControllerAsync 失败：{exc}") from exc
+                state["controller"] = controller
+                try:
+                    controller.IsVisible = True
+                except Exception:  # noqa: BLE001
+                    pass
+                apply_bounds()
+                results["WebView2 内嵌到 Qt 窗口"] = True
+                hint.setText("内嵌 WebView2 已就绪，请完成登录")
+                print("    [OK] Controller 创建成功，Bounds 已同步")
+                controller.CoreWebView2.Navigate(GRAB_URL)
+                threading.Thread(target=run_cdp_checks, args=(results, state), daemon=True).start()
+                timer.stop()
+        except Exception as exc:  # noqa: BLE001 - 槽函数绝不能抛出
             timer.stop()
+            state["error"] = f"{type(exc).__name__}: {exc}"
+            print(f"[FAIL] 创建内嵌 WebView2 失败：{state['error']}")
+            print("       详细堆栈：")
+            traceback.print_exc()
 
     timer = QTimer()
     timer.setInterval(60)
