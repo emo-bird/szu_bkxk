@@ -1131,10 +1131,13 @@ class MainWindow(QMainWindow):
         course_layout.addWidget(self.credential_panel)
         course_layout.addWidget(self.course_panel, 1)
 
-        self.tabs.addTab(course_tab, "课程查询")
+        # 标签页顺序：选课网页在最前并**默认打开**（登录、选课、建任务都在这里完成），
+        # 课程查询（表格 + 手工凭证）放在最后。
         self.tabs.addTab(self.web_panel, "选课网页")
         self.tabs.addTab(self.task_panel, "抢课任务管理器")
         self.tabs.addTab(self.log_panel, "日志面板")
+        self.tabs.addTab(course_tab, "课程查询")
+        self.tabs.setCurrentIndex(0)
         self.setCentralWidget(self.tabs)
 
         self._connect()
