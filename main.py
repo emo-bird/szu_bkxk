@@ -172,6 +172,8 @@ def main() -> int:
         # 把后台线程产生的日志转发到界面日志面板（Qt 信号自动排队到主线程）
         logger.set_ui_sink(window.bridge.logRecord.emit)
         window.show()
+        # 启动内嵌选课网页（环境不支持时自动降级为纯 aiohttp 模式，不影响抢课功能）
+        window.start_webview()
         exit_code = app.exec()
     except Exception as exc:  # noqa: BLE001 - 启动失败需要提示并落盘日志
         logger.error(config.SOURCE_SYSTEM, f"程序启动失败：{exc}", config.CATEGORY_SYSTEM)

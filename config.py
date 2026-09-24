@@ -21,6 +21,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# 项目根目录（其余路径常量都基于它）
+PROJECT_ROOT: Path = Path(__file__).resolve().parent
+
 # ---------------------------------------------------------------------------
 # 应用信息
 # ---------------------------------------------------------------------------
@@ -126,9 +129,29 @@ DEFAULT_POLL_INTERVAL_MS: int = 1500
 ENABLE_WRITE_API: bool = False
 
 # ---------------------------------------------------------------------------
+# 内嵌选课网页（WebView2 + CDP）
+# ---------------------------------------------------------------------------
+# 总开关：关闭或环境不支持时，程序退化为纯 aiohttp 模式（不影响抢课功能）
+ENABLE_EMBEDDED_WEBVIEW: bool = True
+# 内嵌 WebView2 的 CDP 调试端口（数据面全部走 CDP）
+WEBVIEW_DEBUG_PORT: int = 9340
+# WebView2 用户数据目录（保存登录态；已 gitignore，绝不入库）
+WEBVIEW_PROFILE_DIR: Path = PROJECT_ROOT / ".webview2_profile"
+# 官方 WebView2 SDK 解压位置（Core.dll / WinForms.dll / WebView2Loader.dll）
+WEBVIEW_SDK_DIR: Path = PROJECT_ROOT / "vendor" / "webview2"
+# 网页 → Python 回传绑定的函数名
+WEBVIEW_BINDING_NAME: str = "__szuAddTask"
+# 站点卡片原样式是固定 210px 高且无溢出处理，追加「教学班ID」后会撑破卡片
+WEBVIEW_CARD_HEIGHT_PX: int = 252
+# 选课子页面（内嵌页与「真实浏览器」都打开它）
+WEBVIEW_PAGE_URL: str = BASE_URL + EP_GRABLESSONS_PAGE
+# 「在真实浏览器打开」用的独立 Edge 端口与 profile（同样不入库）
+REAL_BROWSER_DEBUG_PORT: int = 9350
+REAL_BROWSER_PROFILE_DIR: Path = PROJECT_ROOT / ".edge_real_profile"
+
+# ---------------------------------------------------------------------------
 # 本地文件路径
 # ---------------------------------------------------------------------------
-PROJECT_ROOT: Path = Path(__file__).resolve().parent
 # 课程列表缓存（仅接口拉取成功才覆盖）
 COURSE_CACHE_FILE: Path = PROJECT_ROOT / "courses_cache.json"
 # 抢课任务配置
