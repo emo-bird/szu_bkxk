@@ -239,6 +239,7 @@ vendor/
 
 # 浏览器 profile（含登录 cookie/登录态，绝不入库）
 .webview2_profile*/
-.edge_profile/
 .edge_real_profile/
-.edge_spike*/
+
+# 测试/调试残留（临时校验脚本的输出目录）
+_itest_out/

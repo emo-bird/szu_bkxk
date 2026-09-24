@@ -256,3 +256,38 @@ icacls C:\Project /restore "$env:TEMP\szu_bkxk_dacl_backup.txt"
 - `feature/webview2-embedded`：该功能的开发分支（自「开始尝试内嵌网页」起的全部提交），已通过 `--no-ff` 合并回 `master`，保留合并记录便于整块回退。
 - 最初的「外部 Edge + CDP」可行性 spike 也随该分支进入主线，作为**回退方案**保留：
   `tools/spike_edge_login.py` 与内嵌方案共用同一套 `cdp_bridge`。
+
+## 十三、打包（可选）
+
+双击 **`build.bat`** 即可打包（脚本只打包，不会运行程序、不会访问学校站点）：
+
+```bat
+:: 等价的手工命令（在项目根目录执行）
+.venv\Scripts\python.exe -m PyInstaller ^
+  --noconfirm --clean --windowed --name szu_bkxk ^
+  --add-data "vendor\webview2;vendor\webview2" ^
+  --collect-all pythonnet --collect-all clr_loader ^
+  --hidden-import clr ^
+  main.py
+```
+
+产物为 `dist\szu_bkxk\szu_bkxk.exe`；**整个 `dist\szu_bkxk` 目录都要保留**，不能只拷贝 exe。
+
+| 参数 | 作用 |
+| --- | --- |
+| `--add-data "vendor\webview2;vendor\webview2"` | 把 WebView2 SDK 打进包（缺了会自动降级为纯 aiohttp 模式） |
+| `--collect-all pythonnet` / `clr_loader` | pythonnet 的托管 DLL 与运行时加载器必须整体收集，否则内嵌网页起不来 |
+| `--hidden-import clr` | `import clr` 是运行时动态导入，静态分析看不到 |
+| `--windowed` | 不带控制台窗口；排错时改成 `--console` 可看到启动期报错 |
+
+> 打包后 **可写产物**（`logs/`、`courses_cache.json`、`tasks_config.json`、浏览器 profile）
+> 都写在 **exe 所在目录**；只读资源（WebView2 SDK）在包内。这一点由 `config.APP_DIR`
+> 与 `config.RESOURCE_DIR` 区分处理，开发运行时两者都等于项目根目录。
+
+## 十四、致谢
+
+本项目离不开以下用户、仓库与工具的帮助：
+
+- **用户**：[xtexx](https://github.com/xtexx)
+- **参考仓库**：[guiyi886/szu_grab_course](https://github.com/guiyi886/szu_grab_course)
+- **AI 工具**：[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness)

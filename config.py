@@ -19,10 +19,25 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-# 项目根目录（其余路径常量都基于它）
-PROJECT_ROOT: Path = Path(__file__).resolve().parent
+# 程序目录：可写产物（日志 / 缓存 / 任务配置 / 浏览器 profile）都放这里。
+# - 开发运行时 = 项目根目录；
+# - PyInstaller 打包后 = exe 所在目录（**不能**用 __file__，否则：
+#   onefile 会落到临时解包目录、退出即丢；onedir 会落到 _internal 里）。
+APP_DIR: Path = (
+    Path(sys.executable).resolve().parent
+    if getattr(sys, "frozen", False)
+    else Path(__file__).resolve().parent
+)
+
+#: 项目根目录（等价于程序目录，保留此别名以兼容既有引用）
+PROJECT_ROOT: Path = APP_DIR
+
+# 资源目录：随程序分发、只读（WebView2 SDK 等由 --add-data 打进包里）。
+# 打包后为 PyInstaller 解包目录（sys._MEIPASS），开发时同程序目录。
+RESOURCE_DIR: Path = Path(getattr(sys, "_MEIPASS", str(APP_DIR)))
 
 # ---------------------------------------------------------------------------
 # 应用信息
@@ -141,7 +156,8 @@ WEBVIEW_DEBUG_PORT: int = 9340
 # WebView2 用户数据目录（保存登录态；已 gitignore，绝不入库）
 WEBVIEW_PROFILE_DIR: Path = PROJECT_ROOT / ".webview2_profile"
 # 官方 WebView2 SDK 解压位置（Core.dll / WinForms.dll / WebView2Loader.dll）
-WEBVIEW_SDK_DIR: Path = PROJECT_ROOT / "vendor" / "webview2"
+# 注意用 RESOURCE_DIR：SDK 是打包进来的只读资源，不属于可写程序目录
+WEBVIEW_SDK_DIR: Path = RESOURCE_DIR / "vendor" / "webview2"
 # 网页 → Python 回传绑定的函数名
 WEBVIEW_BINDING_NAME: str = "__szuAddTask"
 # 站点卡片原样式是固定 210px 高且无溢出处理，追加「教学班ID」后会撑破卡片
