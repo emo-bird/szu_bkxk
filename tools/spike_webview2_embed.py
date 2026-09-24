@@ -67,33 +67,85 @@ PROFILE_DIR = PROJECT_ROOT / ".webview2_profile"
 GRAB_URL = config.BASE_URL + config.EP_GRABLESSONS_PAGE
 CHECK_TIMEOUT = 600.0
 
-#: 在课程卡片上显示教学班ID —— 页面卡片 DOM 本身带 ``tcId`` 属性
+#: 在课程卡片上显示教学班ID。
+#: 抓包实测：根元素 `.cv-course-card` **没有** tcId 属性，tcId 挂在子元素上，
+#: 且根元素 id 形如 ``<教学班ID>_courseDiv``，容量元素 id 形如 ``<教学班ID>_capacity``。
+#: 因此按「根属性 → 子元素属性 → 根 id 前缀」三级回退取值。
 INJECT_TCID_SCRIPT = r"""
 (function () {
   if (window.__szuTcidHook) { return; }
   window.__szuTcidHook = true;
+
+  function pickTcId(card) {
+    var direct = card.getAttribute('tcId');
+    if (direct) { return direct; }
+    var child = card.querySelector('[tcId]');
+    if (child) {
+      var value = child.getAttribute('tcId');
+      if (value) { return value; }
+    }
+    var id = card.getAttribute('id') || '';
+    if (id.length > 10 && id.slice(-10) === '_courseDiv') { return id.slice(0, -10); }
+    return '';
+  }
+
   function tag() {
     var cards = document.querySelectorAll('.cv-course-card');
     for (var i = 0; i < cards.length; i++) {
       var card = cards[i];
       if (card.querySelector('.cv-tcid')) { continue; }
-      var tid = card.getAttribute('tcId') || '';
+      var tid = pickTcId(card);
       if (!tid) { continue; }
       var box = document.createElement('div');
       box.className = 'cv-tcid';
-      box.style.cssText = 'color:#d00;font-weight:700;font-size:12px;margin-top:2px';
+      box.style.cssText = 'color:#d00;font-weight:700;font-size:12px;margin:2px 0;';
       box.textContent = '教学班ID: ' + tid;
-      card.appendChild(box);
+      var info = card.querySelector('.cv-info');
+      if (info && info.firstChild) { info.insertBefore(box, info.firstChild); }
+      else { card.appendChild(box); }
     }
   }
+
   var timer = null;
   new MutationObserver(function () {
     clearTimeout(timer);
-    timer = setTimeout(tag, 200);
+    timer = setTimeout(tag, 150);
   }).observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(tag, 1500);
+  setInterval(tag, 1200);
   tag();
 })();
+"""
+
+#: 注入结果自检脚本：tags 为 0 时一并把首张卡片的真实结构带回来，便于定位
+INJECT_PROBE_SCRIPT = r"""
+(function () {
+  var cards = document.querySelectorAll('.cv-course-card');
+  var tags = document.querySelectorAll('.cv-tcid');
+  var withChild = 0;
+  for (var i = 0; i < cards.length; i++) {
+    if (cards[i].querySelector('[tcId]')) { withChild++; }
+  }
+  var diag = {
+    hookInstalled: !!window.__szuTcidHook,
+    cardsWithChildTcId: withChild,
+    url: location.href
+  };
+  if (cards.length) {
+    var card = cards[0];
+    diag.cardId = card.getAttribute('id');
+    diag.cardAttrs = Array.prototype.map.call(card.attributes, function (a) { return a.name; });
+    var child = card.querySelector('[tcId]');
+    diag.childTcId = child ? child.getAttribute('tcId') : null;
+    diag.childTag = child ? child.tagName + '.' + child.className : null;
+    diag.htmlHead = card.outerHTML.slice(0, 300);
+  }
+  return JSON.stringify({
+    cards: cards.length,
+    tags: tags.length,
+    sample: tags.length ? tags[0].textContent : '',
+    diag: diag
+  });
+})()
 """
 
 
@@ -235,9 +287,14 @@ async def _cdp_checks(results: dict[str, bool]) -> None:
         await cdp.enable()
 
         print("\n=== [3] 执行 JS ===")
-        title = await cdp.evaluate("document.title")
-        href = await cdp.evaluate("location.href")
-        print(f"    标题 = {title!r}  地址 = {str(href)[:70]}")
+        # 等页面真正提交导航（控制器创建后立刻连接 CDP 时，文档可能还是 about:blank）
+        for _ in range(20):
+            href = str(await cdp.evaluate("location.href") or "")
+            if "szu.edu.cn" in href:
+                break
+            await asyncio.sleep(0.5)
+        print(f"    标题={await cdp.evaluate('document.title')!r}")
+        print(f"    地址={str(await cdp.evaluate('location.href'))[:80]}")
         results["执行 JS"] = True
 
         print("\n=== [4] 等待登录，然后读取凭证 ===")
@@ -263,21 +320,20 @@ async def _cdp_checks(results: dict[str, bool]) -> None:
         await cdp.inject_on_new_document(INJECT_TCID_SCRIPT)
         if token:
             await cdp.navigate(f"{GRAB_URL}?token={token}")
-        await asyncio.sleep(5)
-        injected = await cdp.evaluate(
-            "(function(){var cards=document.querySelectorAll('.cv-course-card');"
-            "var tags=document.querySelectorAll('.cv-tcid');"
-            "return JSON.stringify({cards:cards.length,tags:tags.length,"
-            "sample:tags.length?tags[0].textContent:''});})()"
-        )
-        print(f"    注入结果 = {injected}")
-        try:
-            stats = json.loads(str(injected))
-            results["卡片注入教学班ID"] = int(stats.get("tags", 0)) > 0
-            if stats.get("sample"):
-                print(f"    卡片上显示 = {stats['sample']}")
-        except Exception:  # noqa: BLE001
-            results["卡片注入教学班ID"] = False
+        # 注入脚本在新文档加载时自动执行；等待卡片渲染完成
+        for _ in range(12):
+            await asyncio.sleep(1)
+            probe = json.loads(str(await cdp.evaluate(INJECT_PROBE_SCRIPT)))
+            if int(probe.get("tags", 0)) > 0:
+                break
+        print(f"    注入结果 = {json.dumps(probe, ensure_ascii=False)}")
+        results["卡片注入教学班ID"] = int(probe.get("tags", 0)) > 0
+        if probe.get("sample"):
+            print(f"    卡片上显示 = {probe['sample']}")
+        else:
+            print("    [诊断] 首张卡片结构：")
+            for key, value in (probe.get("diag") or {}).items():
+                print(f"        {key} = {value}")
 
         print("\n=== [6] 被动捕获接口响应（零额外请求）===")
         captured = await cdp.capture(20)
