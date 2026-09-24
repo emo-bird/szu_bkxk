@@ -9,7 +9,43 @@
   并导致误判「凭证是旧的」。`tools/probe_api.py` 已强制走队列；
   临时脚本也必须自己保证 ≥500ms 间隔。
 
-## P0｜已用有效凭证完成端到端验收 ✅
+## P0-1｜重构路线可行性 spike（进行中，**需要你在普通终端跑一条命令**）
+
+**背景**：已确认「Edge + CDP」路线**零新增依赖、零下载**——本机已装
+Edge 153.0.4234.48 与 WebView2 Runtime 153.0.4234.48，且 aiohttp 自带 WebSocket，
+足够实现 CDP 客户端。
+
+**关键环境限制（已实测）**：本 AI 会话的沙箱**禁止命名管道**，
+而 Chromium 多进程架构（Mojo）依赖命名管道 —— 实测 Edge 启动即崩：
+
+```
+FATAL:mojo\public\cpp\platform\platform_channel.cc:183] Check failed: 拒绝访问。(0x5)
+```
+
+因此**任何浏览器（Edge / QtWebEngine）都无法在 AI 沙箱内启动**。
+这有两个后果：
+
+1. spike 必须由你在普通 PowerShell 里运行（不影响我写代码与离线测试）；
+2. 若选择「QtWebEngine 内嵌」方案，我将**无法在本会话内运行程序做任何验证**，
+   每次改动都要你手工验证——这是选择路线时的重要成本。
+
+**请在普通 PowerShell 中运行**（脚本不向学校发起任何业务请求，只旁听页面自身流量）：
+
+```powershell
+cd C:\Project\szu_bkxk
+.\.venv\Scripts\python.exe tools\spike_edge_login.py
+```
+
+会弹出一个独立 profile 的 Edge 窗口（不影响你日常用的 Edge）：
+请在窗口里完成统一身份认证登录，脚本会自动继续，并把 4 项能力的
+`[OK]/[FAIL]` 结论打印出来。请把输出贴给我。
+
+- [ ] 等你的 spike 输出后，再在「方案1 纯内嵌网页」/「混合（网页只做登录+取数）」之间定稿。
+- [ ] spike 已离线验证：CDP 客户端（命令配对、`Runtime.evaluate`、
+      `Network.responseReceived` + `getResponseBody`、`Storage.getCookies`）
+      已用假 CDP 服务跑通 5/5 项。
+
+## P0-2｜已用有效凭证完成端到端验收 ✅
 
 - [x] **刷新查询已跑通**（凭证：`34647bf5-…` 那一轮）。完整刷新 7 个类别的实测结果：
 

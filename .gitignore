@@ -228,3 +228,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Edge + CDP spike / 运行期浏览器 profile（含登录态，绝不入库）
+.edge_profile/
+.edge_spike*/
+_edge_*.log
