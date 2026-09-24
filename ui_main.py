@@ -25,8 +25,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import webbrowser
 from typing import Any, Callable, Coroutine
+from urllib.parse import quote
 
 from PyQt6.QtCore import Qt, pyqtSignal, QObject
 from PyQt6.QtGui import QAction, QBrush, QColor
@@ -59,6 +61,7 @@ from PyQt6.QtWidgets import (
 import config
 import course_model as cm
 import task_model as tm
+import webview_bridge as wv_bridge
 from api_client import (
     ApiClient,
     ApiError,
@@ -69,6 +72,7 @@ from api_client import (
 from auth_model import Credentials
 from logger_util import LogRecord, Logger
 from request_queue import QueueFullError
+from webview_host import WebContainer
 
 
 class UiBridge(QObject):
@@ -85,6 +89,14 @@ class UiBridge(QObject):
     coursesFailed = pyqtSignal(str)
     #: 抢课任务状态更新（参数为 :class:`task_model.GrabTask`）
     taskUpdated = pyqtSignal(object)
+    #: 内嵌网页读到的会话（token、cookies、sessionStorage）
+    sessionRead = pyqtSignal(str, list, dict)
+    #: 内嵌网页被动捕获到的课程列表（零额外请求）
+    coursesCaptured = pyqtSignal(list)
+    #: 网页「+ 添加到抢课任务」回传（参数为回传字典）
+    addTaskRequested = pyqtSignal(dict)
+    #: 内嵌网页数据面状态文案
+    webStatus = pyqtSignal(str)
 
 
 class CredentialPanel(QGroupBox):
@@ -188,6 +200,26 @@ class CredentialPanel(QGroupBox):
         self.cookie.clear()
         self._credentials.clear()
         self._logger.info(config.SOURCE_SYSTEM, "凭证已清空。", config.CATEGORY_SYSTEM)
+
+    def apply_credentials(self, credentials: Credentials) -> None:
+        """把凭证对象的内容回填到输入框（用于从内嵌网页自动读取会话）。
+
+        直接修改输入框会触发 ``textChanged`` → :meth:`sync_to_model`，
+        因此这里先把内容写进界面即可，模型会被自动同步。
+
+        :param credentials: 待回填的凭证对象。
+        :return: ``None``
+        """
+        normalized = credentials.normalized()
+        if self.student_code.text() != normalized.student_code:
+            self.student_code.setText(normalized.student_code)
+        if self.elective_batch_code.text() != normalized.elective_batch_code:
+            self.elective_batch_code.setText(normalized.elective_batch_code)
+        if self.token.text() != normalized.token:
+            self.token.setText(normalized.token)
+        if self.cookie.toPlainText() != normalized.cookie:
+            self.cookie.setPlainText(normalized.cookie)
+        self.sync_to_model()
 
 
 class CourseQueryPanel(QWidget):
@@ -730,6 +762,16 @@ class TaskPanel(QWidget):
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         task = dialog.result_task()
+        self.add_task(task)
+
+    def add_task(self, task: tm.GrabTask) -> None:
+        """把一个已构造好的任务加入列表并持久化。
+
+        供「新增任务」对话框与内嵌网页的「+ 添加到抢课任务」共用。
+
+        :param task: 待加入的任务对象。
+        :return: ``None``
+        """
         self._tasks.append(task)
         self._rebuild()
         self.tasksChanged.emit(self._tasks)
@@ -891,6 +933,148 @@ class LogPanel(QWidget):
         return {name: box.isChecked() for name, box in self._category_boxes.items()}
 
 
+class WebPagePanel(QWidget):
+    """标签页：内嵌选课网页（WebView2）。
+
+    只负责「窗口 + 工具栏」，数据面交给 :class:`webview_bridge.WebViewBridge`。
+    """
+
+    #: 请求用本次会话在独立 profile 的真实浏览器里打开
+    realBrowserRequested = pyqtSignal()
+    #: 内嵌网页已就绪（可以启动数据面了）
+    ready = pyqtSignal()
+
+    def __init__(
+        self,
+        logger: Logger,
+        token_provider: Callable[[], str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        """构建面板。
+
+        :param logger: 日志器。
+        :param token_provider: 返回当前会话 token 的函数，用于给选课页 URL 拼 token。
+        :param parent: 父控件。
+        """
+        super().__init__(parent)
+        self._logger = logger
+        self._token_provider = token_provider
+        self.host = None
+
+        self.status_label = QLabel("内嵌网页尚未启动")
+        self.real_browser_button = QPushButton("在真实浏览器打开（用本次会话）")
+        self.real_browser_button.setToolTip(
+            "启动一个独立 profile 的 Edge，把本次会话的 cookie 与 sessionStorage 写进去并打开选课页。\n"
+            "不会影响你日常浏览器的数据。"
+        )
+        self.real_browser_button.setEnabled(False)
+        self.reload_button = QPushButton("重新载入选课页")
+        self.reload_button.setEnabled(False)
+
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(self.real_browser_button)
+        toolbar.addWidget(self.reload_button)
+        toolbar.addWidget(self.status_label, 1)
+
+        self.container = WebContainer(self._on_container_resize)
+        self.container.setStyleSheet("background:#eee;")
+
+        layout = QVBoxLayout(self)
+        layout.addLayout(toolbar)
+        layout.addWidget(self.container, 1)
+
+        self.real_browser_button.clicked.connect(self.realBrowserRequested.emit)
+        self.reload_button.clicked.connect(self.reload)
+
+    def start(self) -> None:
+        """创建并启动内嵌 WebView2。
+
+        :return: ``None``
+        """
+        from webview_host import WebViewHost
+
+        self.host = WebViewHost(self.container, self)
+        self.host.ready.connect(self._on_ready)
+        self.host.failed.connect(self._on_failed)
+        self.status_label.setText("正在创建内嵌 WebView2 …")
+        self.host.start()
+
+    def target_url(self) -> str:
+        """返回当前应加载的地址。
+
+        站点自身跳转选课页时**总是拼上 token**
+        （``index.min.js``：``grablessons.do?token=`` + ``sessionStorage.token``）；
+        缺了它页面会报「系统异常」。因此：
+
+        * 已取得 token → 打开带 token 的选课页；
+        * 尚未登录 → 打开首页（登录入口），由站点自己完成后续跳转。
+
+        :return: 目标地址。
+        """
+        token = ""
+        if self._token_provider is not None:
+            try:
+                token = str(self._token_provider() or "").strip()
+            except Exception:  # noqa: BLE001 - 取 token 失败不应影响导航
+                token = ""
+        if token:
+            return f"{config.WEBVIEW_PAGE_URL}?token={quote(token)}"
+        return config.BASE_URL + config.EP_INDEX
+
+    def reload(self) -> None:
+        """重新载入选课页。
+
+        :return: ``None``
+        """
+        if self.host is not None:
+            self.host.navigate(self.target_url())
+
+    def disable(self, reason: str) -> None:
+        """停用内嵌网页（环境不支持或用户关闭了开关）。
+
+        :param reason: 停用原因（显示在状态栏）。
+        :return: ``None``
+        """
+        self.status_label.setText(f"内嵌网页不可用：{reason}")
+        self.reload_button.setEnabled(False)
+
+    def _on_ready(self) -> None:
+        """WebView2 就绪回调。
+
+        :return: ``None``
+        """
+        self.status_label.setText("内嵌网页已就绪：请登录，然后点击卡片上的「+ 添加到抢课任务」")
+        self.reload_button.setEnabled(True)
+        self.real_browser_button.setEnabled(True)
+        self.host.navigate(self.target_url())
+        self.ready.emit()
+
+    def _on_failed(self, message: str) -> None:
+        """WebView2 创建失败回调。
+
+        :param message: 错误说明。
+        :return: ``None``
+        """
+        self.status_label.setText(f"内嵌网页启动失败：{message}")
+        self._logger.warning(config.SOURCE_SYSTEM, f"内嵌网页启动失败：{message}", config.CATEGORY_SYSTEM)
+
+    def _on_container_resize(self) -> None:
+        """容器尺寸变化时同步 WebView2 的绘制区域。
+
+        :return: ``None``
+        """
+        if self.host is not None:
+            self.host.sync_bounds()
+
+    def set_status(self, message: str) -> None:
+        """更新状态栏文案。
+
+        :param message: 文案。
+        :return: ``None``
+        """
+        self.status_label.setText(message)
+
+
 class MainWindow(QMainWindow):
     """程序主窗口：组织三个标签页，并负责把界面动作投递到异步事件循环。
 
@@ -930,17 +1114,33 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.credential_panel = CredentialPanel(credentials, logger)
         self.course_panel = CourseQueryPanel(logger)
+        self.web_panel = WebPagePanel(logger, token_provider=self._current_token)
         self.task_panel = TaskPanel(logger, course_provider=self._course_candidates)
         self.log_panel = LogPanel(logger)
+        self._webview_started = False
+        self._bridge = wv_bridge.WebViewBridge(
+            logger,
+            on_session=lambda token, cookies, storage: self.bridge.sessionRead.emit(token, cookies, storage),
+            on_courses=lambda courses: self.bridge.coursesCaptured.emit(courses),
+            on_add_task=lambda payload: self.bridge.addTaskRequested.emit(payload),
+            on_status=lambda message: self.bridge.webStatus.emit(message),
+        )
 
         course_tab = QWidget()
         course_layout = QVBoxLayout(course_tab)
         course_layout.addWidget(self.credential_panel)
         course_layout.addWidget(self.course_panel, 1)
 
-        self.tabs.addTab(course_tab, "课程查询")
+        # 标签页顺序：选课网页在最前并**默认打开**（登录、选课、建任务都在这里完成），
+        # 课程查询（表格 + 手工凭证）放在最后。
+        self.tabs.addTab(self.web_panel, "选课网页")
         self.tabs.addTab(self.task_panel, "抢课任务管理器")
         self.tabs.addTab(self.log_panel, "日志面板")
+        self._course_tab_index = self.tabs.addTab(course_tab, "课程查询")
+        # 默认隐藏「课程查询」：凭证已由内嵌网页自动填充、课程也由它被动带来。
+        # 但保留控件与逻辑（可一键恢复），且内嵌网页不可用时会自动重新显示。
+        self.tabs.setTabVisible(self._course_tab_index, config.SHOW_COURSE_QUERY_TAB)
+        self.tabs.setCurrentIndex(0)
         self.setCentralWidget(self.tabs)
 
         self._connect()
@@ -955,6 +1155,12 @@ class MainWindow(QMainWindow):
         self.bridge.coursesFailed.connect(self._on_courses_failed)
         self.bridge.taskUpdated.connect(self.task_panel.update_task)
         self.bridge.logRecord.connect(self.log_panel.append_record)
+        self.bridge.sessionRead.connect(self.on_session_read)
+        self.bridge.coursesCaptured.connect(self.on_courses_captured)
+        self.bridge.addTaskRequested.connect(self.on_add_task_from_web)
+        self.bridge.webStatus.connect(self.web_panel.set_status)
+        self.web_panel.realBrowserRequested.connect(self.on_open_real_browser)
+        self.web_panel.ready.connect(self._on_webview_ready)
         self.task_panel.startTaskRequested.connect(self.on_start_task)
         self.task_panel.stopTaskRequested.connect(self.on_stop_task)
         self.task_panel.tasksChanged.connect(self.persist_tasks)
@@ -1097,6 +1303,142 @@ class MainWindow(QMainWindow):
         self._logger.error(config.SOURCE_COURSE, f"课程查询失败：{message}", config.CATEGORY_QUERY)
 
     # -- 其它动作 -----------------------------------------------------------
+    def show_course_query_tab(self) -> None:
+        """显示「课程查询」标签页。
+
+        内嵌网页不可用（被关闭 / 缺少 WebView2 SDK / pythonnet）时调用，
+        否则用户将没有任何手工填写凭证与刷新查询的入口。
+
+        :return: ``None``
+        """
+        self.tabs.setTabVisible(self._course_tab_index, True)
+
+    def _current_token(self) -> str:
+        """返回内嵌网页当前会话的 token（供选课页 URL 拼接）。
+
+        :return: token 字符串；尚未取得时返回空串。
+        """
+        bridge = getattr(self, "_bridge", None)
+        return str(getattr(bridge, "token", "") or "")
+
+    def start_webview(self) -> None:
+        """启动内嵌选课网页（环境不支持时自动降级为提示，不影响抢课功能）。
+
+        :return: ``None``
+        """
+        if self._webview_started:
+            return
+        self._webview_started = True
+        if not config.ENABLE_EMBEDDED_WEBVIEW:
+            self.web_panel.disable("已在 config.ENABLE_EMBEDDED_WEBVIEW 中关闭")
+            self._logger.info(config.SOURCE_SYSTEM, "内嵌网页已在配置中关闭，使用纯 aiohttp 模式。", config.CATEGORY_SYSTEM)
+            self.show_course_query_tab()
+            return
+        from webview_host import webview2_available
+
+        ok, reason = webview2_available()
+        if not ok:
+            self.web_panel.disable(reason)
+            self._logger.warning(config.SOURCE_SYSTEM, f"内嵌网页不可用，已降级为纯 aiohttp 模式：{reason}", config.CATEGORY_SYSTEM)
+            self.show_course_query_tab()
+            return
+        self.web_panel.start()
+
+    def _on_webview_ready(self) -> None:
+        """内嵌网页就绪后：启动 CDP 数据面。
+
+        :return: ``None``
+        """
+        self._logger.info(config.SOURCE_SYSTEM, "内嵌选课网页已就绪，正在启动数据面（CDP）。", config.CATEGORY_SYSTEM)
+        self._run_async(self._bridge.run())
+
+    def on_open_real_browser(self) -> None:
+        """响应「在真实浏览器打开（用本次会话）」。
+
+        :return: ``None``
+        """
+        self._run_async(self._bridge.open_in_real_browser())
+
+    def on_session_read(self, token: str, cookies: list, storage: dict) -> None:
+        """用内嵌网页读到的会话自动填充凭证（不再需要手工粘贴）。
+
+        ``studentCode`` 与 ``electiveBatchCode`` 从 ``sessionStorage`` 里的
+        ``studentInfo`` / ``currentBatch`` 解析；cookie 拼成请求头形式。
+
+        :param token: 会话令牌。
+        :param cookies: cookie 字典列表。
+        :param storage: ``sessionStorage`` 全量键值。
+        :return: ``None``
+        """
+        host = config.BASE_URL.split("//")[-1].split("/")[0].split(":")[0]
+        parts = [
+            f"{cookie.get('name')}={cookie.get('value')}"
+            for cookie in cookies
+            if not cookie.get("domain")
+            or host.endswith(str(cookie.get("domain", "")).lstrip("."))
+        ]
+        credentials = Credentials(
+            student_code=self._credentials.student_code,
+            elective_batch_code=self._credentials.elective_batch_code,
+            cookie="; ".join(parts),
+            token=token,
+        )
+        try:
+            info = json.loads(storage.get("studentInfo") or "{}")
+            if isinstance(info, dict) and info.get("code"):
+                credentials.student_code = str(info["code"])
+                batch = info.get("electiveBatch") or {}
+                if isinstance(batch, dict) and batch.get("code"):
+                    credentials.elective_batch_code = str(batch["code"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+        if not credentials.elective_batch_code:
+            try:
+                batch = json.loads(storage.get("currentBatch") or "{}")
+                if isinstance(batch, dict) and batch.get("code"):
+                    credentials.elective_batch_code = str(batch["code"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        self.credential_panel.apply_credentials(credentials)
+        self._logger.info(
+            config.SOURCE_SYSTEM,
+            f"已从内嵌网页读取会话并填充凭证：{credentials.masked()}",
+            config.CATEGORY_SYSTEM,
+        )
+
+    def on_courses_captured(self, courses: list) -> None:
+        """把内嵌网页被动捕获到的课程显示到课程表格。
+
+        :param courses: :class:`course_model.Course` 列表。
+        :return: ``None``
+        """
+        if not courses:
+            return
+        self.course_panel.set_courses(
+            list(courses), f"来自内嵌网页的被动捕获：共 {len(courses)} 条（未额外发请求）"
+        )
+
+    def on_add_task_from_web(self, payload: dict) -> None:
+        """响应网页卡片上的「+ 添加到抢课任务」：弹出已自动填充的任务窗口。
+
+        :param payload: 网页回传的数据字典。
+        :return: ``None``
+        """
+        task = wv_bridge.build_task_from_payload(payload, self._bridge.known)
+        self._logger.info(
+            config.SOURCE_TASK,
+            f"收到网页回传：教学班ID={task.teaching_class_id}，课程={task.course_name}"
+            f"，教师={task.teacher_name}，类别={task.type_text}",
+            config.CATEGORY_SYSTEM,
+        )
+        dialog = TaskDialog(task, self._course_candidates(), self._logger, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.task_panel.add_task(dialog.result_task())
+            self.tabs.setCurrentWidget(self.task_panel)
+        else:
+            self._logger.info(config.SOURCE_TASK, "已在任务窗口中取消，未创建任务。", config.CATEGORY_SYSTEM)
+
     def on_open_site(self) -> None:
         """用系统默认浏览器打开选课网页（URL 自动携带 token 查询参数）。
 

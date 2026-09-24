@@ -52,9 +52,26 @@
 | Python | 3.10+（本机 3.14） | 3.14.7 |
 | GUI | PyQt6 | 6.11.0 |
 | 异步网络 | aiohttp（**需额外 pip 安装**） | 3.14.3 |
+| 内嵌网页 | pythonnet + 官方 WebView2 SDK（**需额外安装**） | pythonnet 3.1.0 / SDK 1.0.4191.47 |
+| 浏览器 | 系统自带 Edge / WebView2 Runtime | Edge 153 / WebView2 153 |
 | 版本管理 | git | 2.54.0 |
 
-`PyQt6` 之外**额外需要 pip 安装的依赖包**：`aiohttp`。
+`PyQt6` 之外**额外需要安装的依赖包**：
+
+1. `aiohttp`：`.\.venv\Scripts\python.exe -m pip install aiohttp`
+2. `pythonnet`：`.\.venv\Scripts\python.exe -m pip install pythonnet`
+3. 官方 WebView2 SDK（内嵌网页需要，约 9MB，解压到 `vendor/webview2/`）：
+
+   ```powershell
+   $v = (Invoke-RestMethod https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/index.json).versions[-1]
+   Invoke-WebRequest "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/$v/microsoft.web.webview2.$v.nupkg" -OutFile vendor.zip
+   Expand-Archive vendor.zip -DestinationPath vendor/webview2 -Force
+   Copy-Item vendor/webview2/runtimes/win-x64/native/WebView2Loader.dll vendor/webview2/lib/net462/ -Force
+   Remove-Item vendor.zip
+   ```
+
+> 三项缺任一项，程序会在「选课网页」标签页提示不可用并**自动降级为纯 aiohttp 模式**，
+> 抢课功能不受影响。
 
 ## 三、安装
 
@@ -101,6 +118,23 @@ python -m venv .venv
 - 多任务异步独立运行，网络请求统一经全局限流队列。
 - 任务配置持久化到 `tasks_config.json`；**重启后状态一律为「已停止」，不会自动运行**。
 
+### 标签页2｜选课网页（内嵌）
+
+- 用 **WebView2 把官方选课页内嵌**进程序，用户在内嵌页完成统一身份认证登录；
+- **凭证自动读取**：从内嵌页读 cookie（含 HttpOnly）与整个 `sessionStorage`，
+  自动填充 `studentCode` / `electiveBatchCode` / `cookie` / `token`，**不必再手工复制**；
+- **课程卡片显示教学班ID**，并提供「**+ 添加到抢课任务**」按钮：点击后立即弹出
+  已自动填充的抢课任务窗口（课程名/教师/课程号/课程总号/教学班ID/类别，类别取自
+  被动捕获的 `querySetting`，精确不猜）；
+- **卡片高度修正**：站点原样式固定 `210px` 且未处理溢出，已注入 `252px` 覆盖；
+- **零额外请求取数**：被动旁听页面自身的 XHR 响应体（`Network.getResponseBody`），
+  解析后直接喂给「课程查询」标签页的表格；
+- 「**在真实浏览器打开（用本次会话）**」：把本次会话的 cookie + `sessionStorage`
+  写入一个独立 profile 的 Edge 并打开选课页（**不污染**日常浏览器数据）。
+
+> 抢课提交**仍由 Python 发出**，走 500ms 全局限流队列与 `ENABLE_WRITE_API` 守卫，
+> 内嵌网页只负责登录、浏览与取数。
+
 ### 标签页3｜日志面板
 
 - 日志格式 `[时间戳] [来源模块] 日志内容`，告警/错误额外带 `[告警]`/`[错误]` 前缀。
@@ -121,6 +155,9 @@ szu_bkxk/
 ├─ task_model.py      抢课任务模型、持久化、轮询执行器
 ├─ ui_main.py         PyQt6 主窗口、三个标签页、信号槽与跨线程调度
 ├─ main.py            入口：风险弹窗、模块初始化、Qt + asyncio 双事件循环
+├─ webview_host.py    内嵌 WebView2 窗口宿主（pythonnet + Core API，只管窗口不碰数据）
+├─ webview_bridge.py  内嵌网页数据面（CDP 泵、页面注入、课程回流、会话迁移）
+├─ cdp_bridge.py      CDP 客户端（零依赖，复用 aiohttp 的 WebSocket）
 ├─ tools/             只读接口探测工具（probe_api.py，凭证走环境变量、不落盘）
 ├─ docs/              需求文档、开发准备、接口逆向记录、TODO
 └─ szu/               参考仓库（只读参考，已在 .gitignore 排除）
