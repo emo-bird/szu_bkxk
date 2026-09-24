@@ -91,8 +91,89 @@ def _as_bool(value: object, default: bool = False) -> bool:
     return default
 
 
+def _as_int(value: object, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
+    """把设置值解析为整数并按安全区间钳位。
+
+    注意 bool 是 int 的子类，必须先行排除，否则 ``true`` 会被当成 ``1``。
+
+    :param value: 原始值。
+    :param default: 无法识别时的取值。
+    :param minimum: 下限（含）；``None`` 表示不限制。
+    :param maximum: 上限（含）；``None`` 表示不限制。
+    :return: 钳位后的整数。
+    """
+    if isinstance(value, bool):
+        return default
+    parsed: int | None = None
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, float) and value.is_integer():
+        parsed = int(value)
+    elif isinstance(value, str):
+        try:
+            parsed = int(value.strip())
+        except ValueError:
+            parsed = None
+    if parsed is None:
+        return default
+    if minimum is not None:
+        parsed = max(parsed, minimum)
+    if maximum is not None:
+        parsed = min(parsed, maximum)
+    return parsed
+
+
+def _as_float(
+    value: object, default: float, minimum: float | None = None, maximum: float | None = None
+) -> float:
+    """把设置值解析为浮点数并按安全区间钳位。
+
+    :param value: 原始值。
+    :param default: 无法识别时的取值。
+    :param minimum: 下限（含）。
+    :param maximum: 上限（含）。
+    :return: 钳位后的浮点数。
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return default
+    try:
+        parsed = float(str(value).strip()) if isinstance(value, str) else float(value)
+    except ValueError:
+        return default
+    if minimum is not None:
+        parsed = max(parsed, minimum)
+    if maximum is not None:
+        parsed = min(parsed, maximum)
+    return parsed
+
+
+#: 支持的全部外部设置键。集中声明便于：① 启动时比对出「拼错的键」，避免改了却没生效却查不出原因；
+#: ② 与 settings_default.json 保持一一对应。
+SUPPORTED_SETTINGS: frozenset[str] = frozenset({
+    "enable_write_api",
+    "request_interval_ms",
+    "max_queue_size",
+    "request_timeout_seconds",
+    "query_page_size",
+    "query_max_pages",
+    "default_poll_interval_ms",
+    "enable_embedded_webview",
+    "show_course_query_tab",
+    "webview_debug_port",
+    "real_browser_debug_port",
+    "webview_reload_cooldown_ms",
+    "webview_card_height_px",
+})
+
 #: 外部设置内容（只读快照）
 SETTINGS: dict = _read_settings()
+
+#: 实际生效的外部设置键（按文件中的书写顺序）
+APPLIED_SETTINGS: tuple[str, ...] = tuple(key for key in SETTINGS if key in SUPPORTED_SETTINGS)
+#: 文件中无法识别的键（通常是拼写错误），启动时会告警
+UNKNOWN_SETTINGS: tuple[str, ...] = tuple(
+    key for key in SETTINGS if key not in SUPPORTED_SETTINGS and not key.startswith("_")
+)
 
 #: 写接口开关的当前来源说明（用于启动弹窗与日志，便于确认是谁打开的）
 WRITE_API_SOURCE: str = (
@@ -173,19 +254,22 @@ COURSE_QUERY_PLAN: dict[str, tuple[str, str]] = {
 # 【抓包实测】服务器 pageNumber 为 **0 基**：pageNumber=0 才是第 1 页。
 QUERY_FIRST_PAGE: int = 0
 # 查询分页大小（与浏览器一致）
-QUERY_PAGE_SIZE: int = 10
+QUERY_PAGE_SIZE: int = _as_int(SETTINGS.get("query_page_size"), 10, minimum=1, maximum=100)
 # 单个课程类别最多翻页数量，防止异常响应导致请求失控（待抓包校验后调整）
-QUERY_MAX_PAGES: int = 5
+QUERY_MAX_PAGES: int = _as_int(SETTINGS.get("query_max_pages"), 5, minimum=1, maximum=50)
 
 # ---------------------------------------------------------------------------
 # 全局限流常量【硬性约束，勿随意调小】
 # ---------------------------------------------------------------------------
+# 单条请求最小调度间隔（毫秒）的**硬下限**：不允许通过设置文件调低到该值以下。
+# 依据：实测高频请求会导致会话被踢出，500ms（≤2 请求/秒）是验证过的安全水位。
+REQUEST_INTERVAL_FLOOR_MS: int = 500
 # 单条请求最小调度间隔（毫秒）：1 秒内最多 2 条请求
-REQUEST_INTERVAL_MS: int = 500
+REQUEST_INTERVAL_MS: int = _as_int(SETTINGS.get("request_interval_ms"), 500, minimum=REQUEST_INTERVAL_FLOOR_MS)
 # 请求队列最大待处理请求数量上限，超出直接丢弃
-MAX_QUEUE_SIZE: int = 10
+MAX_QUEUE_SIZE: int = _as_int(SETTINGS.get("max_queue_size"), 10, minimum=1, maximum=100)
 # 单条 http 请求超时时间（秒）
-REQUEST_TIMEOUT_SECONDS: float = 10.0
+REQUEST_TIMEOUT_SECONDS: float = _as_float(SETTINGS.get("request_timeout_seconds"), 10.0, minimum=3.0, maximum=60.0)
 
 # 请求优先级：数值越小越先被调度
 PRIORITY_HIGH: int = 0   # 用户手动触发的 UI 操作（手动刷新课容量、手动收藏等）
@@ -197,7 +281,7 @@ PRIORITY_NORMAL: int = 10  # 自动抢课轮询产生的后台请求
 # 单任务轮询间隔下限（毫秒）：小于该值会被自动钳位，等同于全局限流间隔
 MIN_POLL_INTERVAL_MS: int = REQUEST_INTERVAL_MS
 # 新建任务的默认轮询间隔（毫秒）
-DEFAULT_POLL_INTERVAL_MS: int = 1500
+DEFAULT_POLL_INTERVAL_MS: int = _as_int(SETTINGS.get("default_poll_interval_ms"), 1500, minimum=MIN_POLL_INTERVAL_MS)
 
 # ---------------------------------------------------------------------------
 # 【重要】开发开关
@@ -213,12 +297,12 @@ ENABLE_WRITE_API: bool = _as_bool(
 # 内嵌选课网页（WebView2 + CDP）
 # ---------------------------------------------------------------------------
 # 总开关：关闭或环境不支持时，程序退化为纯 aiohttp 模式（不影响抢课功能）
-ENABLE_EMBEDDED_WEBVIEW: bool = True
+ENABLE_EMBEDDED_WEBVIEW: bool = _as_bool(SETTINGS.get("enable_embedded_webview"), True)
 # 是否显示「课程查询」标签页。默认隐藏：凭证已由内嵌网页自动填充、课程也由它被动带来；
 # 若内嵌网页不可用，程序会**自动重新显示**该标签页，保证仍能手工填凭证与刷新查询。
-SHOW_COURSE_QUERY_TAB: bool = False
+SHOW_COURSE_QUERY_TAB: bool = _as_bool(SETTINGS.get("show_course_query_tab"), False)
 # 内嵌 WebView2 的 CDP 调试端口（数据面全部走 CDP）
-WEBVIEW_DEBUG_PORT: int = 9340
+WEBVIEW_DEBUG_PORT: int = _as_int(SETTINGS.get("webview_debug_port"), 9340, minimum=1024, maximum=65535)
 # WebView2 用户数据目录（保存登录态；已 gitignore，绝不入库）
 WEBVIEW_PROFILE_DIR: Path = PROJECT_ROOT / ".webview2_profile"
 # 官方 WebView2 SDK 解压位置（Core.dll / WinForms.dll / WebView2Loader.dll）
@@ -227,14 +311,14 @@ WEBVIEW_SDK_DIR: Path = RESOURCE_DIR / "vendor" / "webview2"
 # 网页 → Python 回传绑定的函数名
 WEBVIEW_BINDING_NAME: str = "__szuAddTask"
 # 站点卡片原样式是固定 210px 高且无溢出处理，追加「教学班ID」后会撑破卡片
-WEBVIEW_CARD_HEIGHT_PX: int = 252
+WEBVIEW_CARD_HEIGHT_PX: int = _as_int(SETTINGS.get("webview_card_height_px"), 252, minimum=0, maximum=1000)
 # 选课子页面（内嵌页与「真实浏览器」都打开它）
 WEBVIEW_PAGE_URL: str = BASE_URL + EP_GRABLESSONS_PAGE
 # 「在真实浏览器打开」用的独立 Edge 端口与 profile（同样不入库）
 # 「重新载入选课页」按钮的冷却时间（毫秒）。
 # 页面导航不受 API 限流队列约束，加冷却避免误连点导致密集页面加载。
-WEBVIEW_RELOAD_COOLDOWN_MS: int = 1500
-REAL_BROWSER_DEBUG_PORT: int = 9350
+WEBVIEW_RELOAD_COOLDOWN_MS: int = _as_int(SETTINGS.get("webview_reload_cooldown_ms"), 1500, minimum=0, maximum=60000)
+REAL_BROWSER_DEBUG_PORT: int = _as_int(SETTINGS.get("real_browser_debug_port"), 9350, minimum=1024, maximum=65535)
 REAL_BROWSER_PROFILE_DIR: Path = PROJECT_ROOT / ".edge_real_profile"
 
 # ---------------------------------------------------------------------------

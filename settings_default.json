@@ -1,0 +1,16 @@
+{
+  "_comment": "深大选课辅助工具 运行期设置。本文件是默认值模板：打包时会复制为 exe 同级的 settings.json。删除某个键即使用程序内置默认值；值无法识别时也会回退默认值。改完需重启程序生效。",
+  "enable_write_api": false,
+  "request_interval_ms": 500,
+  "max_queue_size": 10,
+  "request_timeout_seconds": 10.0,
+  "query_page_size": 10,
+  "query_max_pages": 5,
+  "default_poll_interval_ms": 1500,
+  "enable_embedded_webview": true,
+  "show_course_query_tab": false,
+  "webview_debug_port": 9340,
+  "real_browser_debug_port": 9350,
+  "webview_reload_cooldown_ms": 1500,
+  "webview_card_height_px": 252
+}

@@ -290,42 +290,64 @@ icacls C:\Project /restore "$env:TEMP\szu_bkxk_dacl_backup.txt"
 > 都写在 **exe 所在目录**；只读资源（WebView2 SDK）在包内。这一点由 `config.APP_DIR`
 > 与 `config.RESOURCE_DIR` 区分处理，开发运行时两者都等于项目根目录。
 
-## 十四、打包后如何调整开关（无需重新打包）
+## 十四、运行期设置（打包后无需重新打包）
 
-`config.py` 打包后会被**编译进 exe**，所以直接改 exe 旁边的 `.py` 文件无效。
-为让**成品**也能调整，程序启动时会读取**与 exe 同级目录**下的可选设置文件 `settings.json`：
-
-```json
-{
-  "enable_write_api": true
-}
-```
+`config.py` 打包后会被**编译进 exe**，所以改 exe 旁边的 `.py` 文件无效。程序启动时会读取
+**与 exe 同级目录**下的 `settings.json`：
 
 | 运行方式 | 设置文件位置 |
 | --- | --- |
-| 打包成品 | `build\szu_bkxk\settings.json`（与 `szu_bkxk.exe` 同级） |
+| 打包成品 | `build\szu_bkxk\settings.json`（由 `build.bat` 从模板自动复制） |
 | 开发运行 | 项目根目录 `settings.json` |
 
-优先级：**环境变量 `SZUBKXK_ENABLE_WRITE_API` > `settings.json` > 源码默认值（False）**。
+- `settings_default.json`：**模板**（入库；其值与代码内置默认值一致，改代码默认值时要同步）；
+- `settings.json`：**活动设置**（已 gitignore，属个人本地配置；打包时自动从模板复制一份）。
 
-一行命令创建 / 改写（打包成品）：
+### 支持的设置项
+
+| 键 | 默认 | 取值范围（超出自动钳位） | 说明 |
+| --- | --- | --- | --- |
+| `enable_write_api` | `false` | 布尔 | 写接口总开关；开启后抢课会**真实提交**选课请求 |
+| `request_interval_ms` | `500` | **≥ 500，不可调低** | 全局请求间隔（1 秒最多 2 条） |
+| `max_queue_size` | `10` | 1–100 | 请求队列上限，超出直接丢弃 |
+| `request_timeout_seconds` | `10.0` | 3–60 | 单条 http 请求超时 |
+| `query_page_size` | `10` | 1–100 | 查询分页大小 |
+| `query_max_pages` | `5` | 1–50 | 单个课程类别最多翻页数 |
+| `default_poll_interval_ms` | `1500` | ≥ `request_interval_ms` | 新建抢课任务的默认轮询间隔 |
+| `enable_embedded_webview` | `true` | 布尔 | 内嵌选课网页总开关；关掉即退化为纯 aiohttp 模式 |
+| `show_course_query_tab` | `false` | 布尔 | 是否显示「课程查询」标签页 |
+| `webview_debug_port` | `9340` | 1024–65535 | 内嵌浏览器 CDP 调试端口 |
+| `real_browser_debug_port` | `9350` | 1024–65535 | 「在真实浏览器打开」所用的端口 |
+| `webview_reload_cooldown_ms` | `1500` | 0–60000 | 「重新载入」按钮的冷却时间 |
+| `webview_card_height_px` | `252` | 0–1000 | 课程卡片高度（站点原样式固定高度会溢出） |
+
+**优先级**：环境变量 `SZUBKXK_ENABLE_WRITE_API` > `settings.json` > 代码内置默认值。
+
+### 安全设计
+
+- 文件缺失 / 键缺失 / JSON 损坏 / 值无法识别 → **一律回退代码默认值**，绝不"猜成开启"；
+- 刻意不用 `bool(value)`：字符串 `"false"` 会被判为**真** —— 安全开关上最危险的一类错误；
+- `bool` 不会被当成整数（`true` 不会变成 `1`）；
+- **限流间隔有硬下限 500ms，无法通过设置文件调低**（实测高频请求会导致会话被踢出）；
+- 拼错的键会在启动时被识别并告警，避免"改了没生效"却查不出原因。
+
+启动日志会写清三件事：已生效的设置项与生效值、无法识别的键、写接口开关的开启来源。
+
+### 示例（打包成品）
 
 ```powershell
-# 开启
-'{ "enable_write_api": true }' | Set-Content -Encoding utf8 build\szu_bkxk\settings.json
-# 关闭
-Remove-Item build\szu_bkxk\settings.json
+# 开启写接口 + 请求间隔放宽到 800ms + 显示课程查询页
+@'
+{
+  "enable_write_api": true,
+  "request_interval_ms": 800,
+  "show_course_query_tab": true
+}
+'@ | Set-Content -Encoding utf8 build\szu_bkxk\settings.json
 ```
 
-**安全设计**：
-
-- 文件缺失 / JSON 格式错误 / 值无法识别 → **一律回退为 `False`**，绝不会"猜成开启"；
-- 刻意不用 `bool(value)`：否则字符串 `"false"` 会被判为真 —— 这是安全开关上最危险的一类错误（已单测覆盖）；
-- 开启后启动时会 ① 在风险弹窗里追加醒目提示（含开启来源）② 在日志面板写一条告警；
-- 开启即意味着抢课任务会**真实提交选课请求**，可能触发学校风控，风险自负。
-
-> 不想用外部文件的话，也可以直接改 `config.py` 里的默认值（第 144 行附近）后重新运行
-> `build.bat` 重新打包（约 2 分钟）。
+> **恢复出厂**：删除 `build\szu_bkxk\settings.json`，或用 `settings_default.json` 覆盖它。
+> 改完需**重启程序**生效。
 
 ## 十五、致谢
 

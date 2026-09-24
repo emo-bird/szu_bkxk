@@ -33,7 +33,7 @@ if not exist "vendor\webview2\lib\net462\Microsoft.Web.WebView2.Core.dll" (
     echo.
 )
 
-echo [1/3] 检查 PyInstaller ...
+echo [1/4] 检查 PyInstaller ...
 ".venv\Scripts\python.exe" -m PyInstaller --version >nul 2>&1
 if errorlevel 1 (
     echo       未安装，正在安装（仅首次需要）...
@@ -47,11 +47,11 @@ if errorlevel 1 (
     )
 )
 
-echo [2/3] 清理旧产物 ...
+echo [2/4] 清理旧产物 ...
 if exist "build" rmdir /s /q "build"
 if exist "build\szu_bkxk" rmdir /s /q "build\szu_bkxk"
 
-echo [3/3] 开始打包（约 1-3 分钟，请勿关闭窗口）...
+echo [3/4] 开始打包（约 1-3 分钟，请勿关闭窗口）...
 ".venv\Scripts\python.exe" -m PyInstaller ^
   --noconfirm ^
   --clean ^
@@ -75,6 +75,14 @@ if errorlevel 1 (
     echo.
     pause
     exit /b 1
+)
+
+echo [4/4] 生成成品的 settings.json ...
+copy /y "settings_default.json" "build\szu_bkxk\settings.json" >nul
+if errorlevel 1 (
+    echo       [警告] 复制失败，成品将使用程序内置默认值。
+) else (
+    echo       已生成 build\szu_bkxk\settings.json（可直接编辑该文件调整开关与参数）
 )
 
 echo.

@@ -171,6 +171,23 @@ def main() -> int:
             config.CATEGORY_SYSTEM,
         )
 
+    if config.APPLIED_SETTINGS:
+        logger.info(
+            config.SOURCE_SYSTEM,
+            f"已应用外部设置（{config.SETTINGS_FILE.name}）：{'、'.join(config.APPLIED_SETTINGS)}；生效值 "
+            f"请求间隔={config.REQUEST_INTERVAL_MS}ms、队列上限={config.MAX_QUEUE_SIZE}、"
+            f"查询页大小={config.QUERY_PAGE_SIZE}、单类别最多页数={config.QUERY_MAX_PAGES}、"
+            f"默认轮询间隔={config.DEFAULT_POLL_INTERVAL_MS}ms。",
+            config.CATEGORY_SYSTEM,
+        )
+    if config.UNKNOWN_SETTINGS:
+        logger.warning(
+            config.SOURCE_SYSTEM,
+            f"{config.SETTINGS_FILE.name} 中无法识别的键已忽略（是否拼写错误？）："
+            f"{'、'.join(config.UNKNOWN_SETTINGS)}",
+            config.CATEGORY_SYSTEM,
+        )
+
     credentials, queue, client = build_components(logger)
 
     async def bootstrap() -> None:
