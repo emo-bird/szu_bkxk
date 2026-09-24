@@ -59,7 +59,7 @@ from PyQt6.QtWidgets import (
 import config
 import course_model as cm
 import task_model as tm
-from api_client import ApiClient, ApiError, MissingCredentialsError
+from api_client import ApiClient, ApiError, MissingCredentialsError, build_elective_page_url
 from auth_model import Credentials
 from logger_util import LogRecord, Logger
 from request_queue import QueueFullError
@@ -1076,12 +1076,32 @@ class MainWindow(QMainWindow):
 
     # -- 其它动作 -----------------------------------------------------------
     def on_open_site(self) -> None:
-        """用系统默认浏览器打开选课网页。
+        """用系统默认浏览器打开选课网页（URL 自动携带 token 查询参数）。
+
+        站点实测（``index.min.js``）：选课子页面必须通过 URL 携带 token 才能进入
+        —— 新开的浏览器标签页没有 ``sessionStorage``，只能靠 URL 传参。
+        token 为空时会告警，并打开不带参数的地址。
+
+        .. note::
+           日志中**不记录**带 token 的完整 URL，避免凭证落盘。
 
         :return: ``None``
         """
-        webbrowser.open(config.SITE_HOME_URL)
-        self._logger.info(config.SOURCE_SYSTEM, f"已在默认浏览器打开：{config.SITE_HOME_URL}", config.CATEGORY_SYSTEM)
+        credentials = self._credentials.normalized()
+        if not credentials.token:
+            self._logger.warning(
+                config.SOURCE_SYSTEM,
+                "token 为空，跳转后的选课页面可能无法正常进入；请先在上方粘贴 token。",
+                config.CATEGORY_SYSTEM,
+            )
+        url = build_elective_page_url(credentials)
+        webbrowser.open(url)
+        safe_url = config.BASE_URL + config.EP_GRABLESSONS_PAGE
+        self._logger.info(
+            config.SOURCE_SYSTEM,
+            f"已在默认浏览器打开选课页面：{safe_url}（已附加 token 参数，出于安全考虑不写入日志）",
+            config.CATEGORY_SYSTEM,
+        )
 
     # -- 抢课任务 -----------------------------------------------------------
     def load_persisted_tasks(self) -> None:
