@@ -466,7 +466,7 @@ class GrabTaskRunner:
         try:
             response = await self._client.query_courses(
                 task.teaching_class_type,
-                page_number=1,
+                page_number=config.QUERY_FIRST_PAGE,
                 priority=config.PRIORITY_NORMAL,
             )
         except MissingCredentialsError as exc:

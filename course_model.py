@@ -44,59 +44,33 @@ TABLE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("capacity_text", "已选人数 / 总人数"),
 )
 
-#: 展示列到接口候选字段名的映射，按优先级从高到低排列（**待抓包校验**）。
+#: 展示列到接口候选字段名的映射，按优先级从高到低排列。
+#: 依据 ``docs/har.json`` 抓包会话的真实响应实测确定（见 docs/接口逆向记录.md）：
+#: - programCourse.do / recommendedCourse.do：课程级字段 + 嵌套 ``tcList`` 教学班级；
+#: - publicCourse.do（校公选课/慕课）：无 ``tcList``，一行即一个教学班级（扁平结构）。
 _FIELD_CANDIDATES: dict[str, tuple[str, ...]] = {
-    "course_number": ("courseNumber", "courseNo", "courseCode"),
-    "course_total_number": (
-        "courseTotalNumber",
-        "totalCourseNumber",
-        "courseTotalNo",
-        "teachingClassNumber",
-        "classNumber",
-    ),
-    "course_category": (
-        "courseCategory",
-        "courseTypeName",
-        "teachingClassTypeName",
-        "courseType",
-    ),
-    "course_nature": (
-        "courseNature",
-        "courseProperty",
-        "natureName",
-        "courseAttribute",
-        "courseNatureName",
-    ),
-    "department": (
-        "openDepartment",
-        "openDepartmentName",
-        "department",
-        "departmentName",
-        "openCollege",
-        "collegeName",
-    ),
-    "credit": ("credit", "courseCredit", "creditValue", "creditHour", "creditNum"),
-    "course_time": ("teachingTime", "classTime", "courseTime", "teachingPlace"),
-    "is_mooc": ("isMooc", "mooc", "isMoocCourse", "moocFlag"),
+    "course_number": ("courseNumber",),
+    "course_total_number": ("courseTotalNumber",),
+    "course_category": ("courseTypeName", "typeName", "courseType", "type"),
+    "course_nature": ("courseNatureName", "courseNature"),
+    "department": ("departmentName", "departmentCode"),
+    "credit": ("credit",),
+    "course_time": ("teachingPlace", "teachingTimeList"),
+    "is_mooc": ("isMooc",),
 }
 
-_TEACHER_CANDIDATES: tuple[str, ...] = ("teacherName", "teacher", "teachers", "teacherNames")
-_CAPACITY_CANDIDATES: tuple[str, ...] = (
-    "classCapacity",
-    "capacity",
-    "numberOfClassCapacity",
-    "classCap",
-)
+_TEACHER_CANDIDATES: tuple[str, ...] = ("teacherName",)
+_CAPACITY_CANDIDATES: tuple[str, ...] = ("classCapacity", "mainClassCapacity")
 _SELECTED_CANDIDATES: tuple[str, ...] = (
     "numberOfFirstVolunteer",
     "numberOfSelected",
-    "selectedNumber",
-    "numberOfChoose",
-    "selectedNum",
+    "selected",
 )
-_FULL_CANDIDATES: tuple[str, ...] = ("isFull", "full", "isFullFlag")
-_CONFLICT_CANDIDATES: tuple[str, ...] = ("isConflict", "conflict")
-_CHOSEN_CANDIDATES: tuple[str, ...] = ("isChoose", "selected", "isSelected")
+_FULL_CANDIDATES: tuple[str, ...] = ("isFull",)
+_CONFLICT_CANDIDATES: tuple[str, ...] = ("isConflict",)
+_CHOSEN_CANDIDATES: tuple[str, ...] = ("isChoose",)
+_CLASS_ID_CANDIDATES: tuple[str, ...] = ("teachingClassID", "tcId", "teachingClassId", "classId", "id")
+
 
 
 def _pick(source: Mapping[str, Any], keys: Sequence[str], default: str = "") -> str:
@@ -351,7 +325,7 @@ def parse_courses(
         merged: dict[str, Any] = dict(course)
         merged.update(tc_info)
 
-        teaching_class_id = _pick(tc_info, ("teachingClassID", "teachingClassId", "classId", "id"))
+        teaching_class_id = _pick(tc_info, _CLASS_ID_CANDIDATES)
         capacity = _to_int(_pick(tc_info, _CAPACITY_CANDIDATES, "0"))
         selected = _to_int(_pick(tc_info, _SELECTED_CANDIDATES, "0"))
         full_raw = _pick(tc_info, _FULL_CANDIDATES, "")
@@ -396,7 +370,7 @@ def extract_capacity(
     """
     target = str(teaching_class_id).strip()
     for course, tc_info in iter_teaching_classes(api_response):
-        current_id = _pick(tc_info, ("teachingClassID", "teachingClassId", "classId", "id"))
+        current_id = _pick(tc_info, _CLASS_ID_CANDIDATES)
         if current_id != target:
             continue
         capacity = _to_int(_pick(tc_info, _CAPACITY_CANDIDATES, "0"))

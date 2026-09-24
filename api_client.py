@@ -103,20 +103,36 @@ def build_elective_page_url(credentials: Credentials) -> str:
     return f"{url}?token={quote(token)}"
 
 
+def query_endpoint(teaching_class_type: str) -> str:
+    """返回某课程类别对应的查询接口路径。
+
+    :param teaching_class_type: 课程类别代码。
+    :return: 相对接口路径；未登记的类别回退到 ``programCourse.do``。
+    """
+    return config.COURSE_QUERY_PLAN.get(teaching_class_type, (config.EP_PROGRAM_COURSE, ""))[0]
+
+
 def build_query_setting(
     credentials: Credentials,
     teaching_class_type: str,
-    page_number: int = 1,
+    page_number: int = config.QUERY_FIRST_PAGE,
 ) -> str:
     """构造课程查询接口的 ``querySetting`` 表单字段值。
 
-    字段取自参考仓库 ``szu/downloads.py``，**未经抓包校验**。
+    字段结构依据 ``docs/har.json`` 中已登录会话的真实请求逆向得出，
+    与参考仓库写法有 **两处关键差异**：
+
+    * ``pageNumber`` 服务器是 **0 基**（``0`` 才是第 1 页）；
+    * ``queryContent`` 随课程类别不同而不同（见 ``config.COURSE_QUERY_PLAN``）。
 
     :param credentials: 已规整的身份凭证。
     :param teaching_class_type: 课程类别代码，见 ``config.TEACHING_CLASS_TYPES``。
-    :param page_number: 页码，从 1 开始。
+    :param page_number: 页码，**从 0 开始**。
     :return: 紧凑 JSON 字符串。
     """
+    _, query_content = config.COURSE_QUERY_PLAN.get(
+        teaching_class_type, (config.EP_PROGRAM_COURSE, "YCJX:2,MOOC:2,")
+    )
     payload = {
         "data": {
             "studentCode": credentials.student_code,
@@ -126,7 +142,7 @@ def build_query_setting(
             "teachingClassType": teaching_class_type,
             "checkConflict": "2",
             "checkCapacity": "2",
-            "queryContent": "MOOC:2,",
+            "queryContent": query_content,
         },
         "pageSize": str(config.QUERY_PAGE_SIZE),
         "pageNumber": str(page_number),
@@ -278,6 +294,7 @@ class ApiClient:
 
         Cookie 恒定携带；token 是否放入请求头由 ``use_token`` 决定
         （需求文档明确「不是所有请求都要带 token」）。
+        抓包实测：接口调用还需携带 ``Referer``（选课子页面）与 ``Origin``。
 
         :param credentials: 已规整的凭证。
         :param use_token: 是否把 ``sessionStorage.token`` 放入 ``token`` 请求头。
@@ -286,38 +303,38 @@ class ApiClient:
         headers = dict(config.DEFAULT_HEADERS)
         headers["Cookie"] = credentials.cookie
         if use_token:
-            # TODO(抓包校验)：确认哪些接口通过请求头传递 token、哪些通过 URL 参数
             headers["token"] = credentials.token
+            # 抓包实测：浏览器从选课子页面发起请求，带 Referer 与 Origin
+            headers["Referer"] = (
+                f"{config.BASE_URL}{config.EP_GRABLESSONS_PAGE}?token={credentials.token}"
+            )
+            headers["Origin"] = config.BASE_URL.rstrip("/")
         return headers
 
     # -- 课程查询 -----------------------------------------------------------
     async def query_courses(
         self,
         teaching_class_type: str,
-        page_number: int = 1,
+        page_number: int = config.QUERY_FIRST_PAGE,
         priority: int = config.PRIORITY_HIGH,
     ) -> dict[str, Any]:
         """调用课程查询接口，返回接口原始 JSON。
 
-        请求体解析为 :class:`course_model.Course` 由上层（``course_model``）负责，
-        本模块保持「纯传输层」职责。
+        接口路径与 ``queryContent`` 按 ``config.COURSE_QUERY_PLAN`` 中
+        **抓包实测**的映射选取（不同类别走不同接口）。
 
         :param teaching_class_type: 课程类别代码。
-        :param page_number: 页码，从 1 开始。
+        :param page_number: 页码，**从 0 开始**（服务器为 0 基）。
         :param priority: 请求优先级，手动刷新应使用 ``config.PRIORITY_HIGH``。
         :return: 接口返回的 JSON 字典。
         :raises MissingCredentialsError: 关键凭证缺失。
-        :raises ApiError: 网络异常或响应不是合法 JSON。
+        :raises NotAuthenticatedError: 登录态失效。
+        :raises ApiError: 网络异常或服务器业务错误。
         """
-        action = f"课程查询（{config.TEACHING_CLASS_TYPES.get(teaching_class_type, teaching_class_type)} 第 {page_number} 页）"
+        action = f"课程查询（{config.TEACHING_CLASS_TYPES.get(teaching_class_type, teaching_class_type)} 第 {page_number + 1} 页）"
         credentials = self._current_credentials(action)
-        path = (
-            config.EP_RECOMMENDED_COURSE
-            if teaching_class_type in config.RECOMMENDED_COURSE_TYPES
-            else config.EP_PROGRAM_COURSE
-        )
+        path = query_endpoint(teaching_class_type)
         form_data = {"querySetting": build_query_setting(credentials, teaching_class_type, page_number)}
-        # TODO(抓包校验)：确认查询接口是否需要 token 请求头、是否需要额外 URL 参数
         headers = self._build_headers(credentials, use_token=True)
         self._logger.info(
             config.SOURCE_COURSE,
@@ -343,24 +360,24 @@ class ApiClient:
     ) -> dict[str, Any]:
         """调用「已选课程结果」查询接口。
 
-        该接口的 ``studentCode`` 与 ``timestamp`` 按参考仓库放在 **URL query** 中，
-        不带 token（对应需求文档「部分接口没有 token」的现象）。
+        抓包实测：``studentCode`` 放在**表单 body** 中（不是 URL query），
+        ``timestamp`` 放在 URL query 中。
 
         :param priority: 请求优先级。
         :return: 接口返回的 JSON 字典。
         :raises MissingCredentialsError: 关键凭证缺失。
-        :raises ApiError: 网络异常或响应不是合法 JSON。
+        :raises NotAuthenticatedError: 登录态失效。
+        :raises ApiError: 网络异常或服务器业务错误。
         """
         action = "已选课程结果查询"
         credentials = self._current_credentials(action)
-        params = {"timestamp": current_millis(), "studentCode": credentials.student_code}
-        headers = self._build_headers(credentials, use_token=False)
+        headers = self._build_headers(credentials, use_token=True)
         text = await self._queue.submit(
             lambda: self._post_form(
                 config.EP_COURSE_RESULT,
-                {},
+                {"studentCode": credentials.student_code},
                 headers,
-                params=params,
+                params={"timestamp": current_millis()},
                 source=config.SOURCE_COURSE,
             ),
             priority,

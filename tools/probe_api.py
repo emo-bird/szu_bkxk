@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
-"""只读接口探测工具：用于逆向校验课程查询接口的真实响应结构。
+"""只读接口探测工具：校验课程查询接口的真实响应结构。
 
-**安全约束**：
-    - 本工具**只调用登录检查与查询类接口**，不含任何选课 / 退课写请求；
-    - 凭证全部从环境变量读取，**不写入任何文件**；
-    - 不做高频轮询，单次运行发出的请求数在 10 条以内。
+**安全约束（务必遵守）**：
+    - 本工具**只调用查询类接口**，不含任何选课 / 退课写请求；
+    - 所有请求**强制经过项目自己的全局请求队列**，即每条请求间隔
+      ``config.REQUEST_INTERVAL_MS``（500ms）—— 站点对高频请求会直接
+      终止登录会话，绕过节流会导致凭证被踢；
+    - 凭证全部从环境变量读取，**不写入任何文件**，日志中也不打印请求头；
+    - 单次运行发出的请求数很少（默认 3 条），不会长时间轮询。
 
 用法（PowerShell）::
 
@@ -14,7 +17,7 @@
     $env:SZU_BATCH  = "<electiveBatchCode>"
     .\\.venv\\Scripts\\python.exe tools\\probe_api.py
 
-对应的需求背景与已证结论见 ``docs/接口逆向记录.md``。
+对应的需求背景与已验证结论见 ``docs/接口逆向记录.md``。
 
 --------------------------------------------------------------------------
 ⚠️ 警告：本程序仅用于技术学习研究。直接高频调用学校选课接口有触发风控、
@@ -29,23 +32,25 @@ import asyncio
 import json
 import os
 import sys
-import time
 from pathlib import Path
-
-import aiohttp
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 import config  # noqa: E402
+from api_client import ApiClient, ApiError, MissingCredentialsError, NotAuthenticatedError  # noqa: E402
+from auth_model import Credentials  # noqa: E402
+from logger_util import Logger  # noqa: E402
+from request_queue import RequestQueue  # noqa: E402
 
-SYS_BASE = config.BASE_URL + "xsxkapp/sys/xsxkapp/"
+#: 默认探测的课程类别（每类 1 条请求，全部经 500ms 限流队列）
+DEFAULT_TYPES: tuple[str, ...] = ("FANKC", "XGXK")
 
 
-def headers_from_env() -> dict[str, str]:
-    """从环境变量组装请求头。
+def credentials_from_env() -> Credentials:
+    """从环境变量读取四项凭证。
 
-    :return: 请求头字典。
+    :return: :class:`auth_model.Credentials` 实例。
     :raises SystemExit: 缺少必需的环境变量。
     """
     required = ("SZU_COOKIE", "SZU_TOKEN", "SZU_STU", "SZU_BATCH")
@@ -53,108 +58,75 @@ def headers_from_env() -> dict[str, str]:
     if missing:
         print(f"缺少环境变量：{'、'.join(missing)}", file=sys.stderr)
         raise SystemExit(2)
-    return {
-        **config.DEFAULT_HEADERS,
-        "Cookie": os.environ["SZU_COOKIE"],
-        "token": os.environ["SZU_TOKEN"],
-    }
-
-
-def describe(text: str) -> str:
-    """把响应文本压缩成一行可读描述。
-
-    :param text: 响应正文。
-    :return: 描述字符串（JSON 给出结构与条数，HTML 给出标题与长度）。
-    """
-    stripped = text.lstrip()
-    if stripped.startswith("{"):
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError:
-            return f"疑似 JSON 但解析失败：{text[:150]}"
-        parts = [f"JSON 顶层字段={sorted(data.keys())}"]
-        data_list = data.get("dataList")
-        if isinstance(data_list, list):
-            parts.append(f"dataList 条数={len(data_list)}")
-            if data_list and isinstance(data_list[0], dict):
-                parts.append(f"课程级字段={sorted(data_list[0].keys())}")
-                tc_list = data_list[0].get("tcList") or []
-                parts.append(f"tcList 条数={len(tc_list)}")
-                if tc_list and isinstance(tc_list[0], dict):
-                    parts.append(f"教学班级字段={sorted(tc_list[0].keys())}")
-                    parts.append(f"教学班样例={json.dumps(tc_list[0], ensure_ascii=False)[:800]}")
-                parts.append(f"课程样例={json.dumps(data_list[0], ensure_ascii=False)[:800]}")
-        return " | ".join(parts)
-    if stripped.startswith("<") or "<!DOCTYPE" in text[:200]:
-        return f"HTML 页面（长度={len(text)}）→ 判定为登录态失效"
-    return f"未知内容（长度={len(text)}）：{text[:150]}"
-
-
-async def probe(session: aiohttp.ClientSession, label: str, path: str, data: dict | None = None) -> None:
-    """调用一个接口并打印结果。
-
-    :param session: aiohttp 会话。
-    :param label: 展示用名称。
-    :param path: 相对 ``SYS_BASE`` 的接口路径。
-    :param data: 表单数据。
-    :return: ``None``
-    """
-    url = f"{SYS_BASE}{path}?timestamp={int(time.time() * 1000)}"
-    try:
-        async with session.post(
-            url, headers=headers_from_env(), data=data or {}, allow_redirects=False
-        ) as response:
-            text = await response.text()
-            print(f"\n[{label}] {path}\n  状态={response.status} 类型={response.headers.get('Content-Type','')}")
-            print(f"  {describe(text)}")
-    except Exception as exc:  # noqa: BLE001 - 探测工具需要打印任何失败原因
-        print(f"\n[{label}] {path}\n  请求异常：{type(exc).__name__}: {exc}")
-
-
-def query_setting(teaching_class_type: str) -> str:
-    """构造课程查询的 ``querySetting``。
-
-    :param teaching_class_type: 课程类别代码。
-    :return: 紧凑 JSON 字符串。
-    """
-    return json.dumps(
-        {
-            "data": {
-                "studentCode": os.environ["SZU_STU"],
-                "campus": config.CAMPUS,
-                "electiveBatchCode": os.environ["SZU_BATCH"],
-                "isMajor": "1",
-                "teachingClassType": teaching_class_type,
-                "checkConflict": "2",
-                "checkCapacity": "2",
-                "queryContent": "MOOC:2,",
-            },
-            "pageSize": str(config.QUERY_PAGE_SIZE),
-            "pageNumber": "1",
-            "order": "",
-            "orderBy": "courseNumber",
-        },
-        ensure_ascii=False,
-        separators=(",", ":"),
+    return Credentials(
+        student_code=os.environ["SZU_STU"],
+        elective_batch_code=os.environ["SZU_BATCH"],
+        cookie=os.environ["SZU_COOKIE"],
+        token=os.environ["SZU_TOKEN"],
     )
 
 
+def describe(data: dict) -> str:
+    """把接口响应压缩成可读描述。
+
+    :param data: 接口返回的 JSON 对象。
+    :return: 多行描述字符串。
+    """
+    lines = [
+        f"    code={data.get('code')!r} msg={data.get('msg')!r} "
+        f"totalCount={data.get('totalCount')!r}"
+    ]
+    data_list = data.get("dataList")
+    if isinstance(data_list, list):
+        lines.append(f"    dataList 条数={len(data_list)}")
+        if data_list and isinstance(data_list[0], dict):
+            first = data_list[0]
+            lines.append(f"    课程级字段={sorted(first.keys())}")
+            tc_list = first.get("tcList")
+            if isinstance(tc_list, list) and tc_list and isinstance(tc_list[0], dict):
+                lines.append(f"    tcList 条数={len(tc_list)}")
+                lines.append(f"    教学班级字段={sorted(tc_list[0].keys())}")
+                lines.append(f"    教学班样例={json.dumps(tc_list[0], ensure_ascii=False)[:600]}")
+            else:
+                lines.append("    （无 tcList，该类别为扁平行结构）")
+    return "\n".join(lines)
+
+
 async def main() -> None:
-    """依次探测登录态与课程查询接口。"""
-    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=config.REQUEST_TIMEOUT_SECONDS * 3)) as session:
-        print("=== 1. 登录态检查 ===")
-        await probe(session, "登录检查", "student/check/login.do")
-        print("\n=== 2. 选课批次（公开）===")
-        await probe(session, "选课批次", "elective/batch.do")
-        print("\n=== 3. 课程查询（需要登录）===")
-        for code in ("FANKC", "XGXK"):
-            await probe(
-                session,
-                f"课程查询 {code}",
-                "elective/programCourse.do",
-                {"querySetting": query_setting(code)},
-            )
-    print("\n完成。仅执行了只读请求，未调用任何写接口。")
+    """依次探测各类别的课程查询接口。"""
+    credentials = credentials_from_env()
+    logger = Logger()
+    queue = RequestQueue(logger=logger)
+    await queue.start()
+    client = ApiClient(lambda: credentials, queue, logger)
+    await client.start()
+
+    print(f"调度间隔 = {queue.interval_ms}ms，队列上限 = {queue.max_size}，"
+          f"本次共 {len(DEFAULT_TYPES)} 条查询请求")
+    try:
+        for teaching_class_type in DEFAULT_TYPES:
+            label = config.TEACHING_CLASS_TYPES.get(teaching_class_type, teaching_class_type)
+            print(f"\n=== 课程查询 {label}({teaching_class_type}) ===")
+            try:
+                data = await client.query_courses(
+                    teaching_class_type,
+                    page_number=config.QUERY_FIRST_PAGE,
+                    priority=config.PRIORITY_HIGH,
+                )
+                print(describe(data))
+            except MissingCredentialsError as exc:
+                print(f"    凭证缺失：{exc}")
+            except NotAuthenticatedError as exc:
+                print(f"    登录态已失效：{exc}")
+                break
+            except ApiError as exc:
+                print(f"    接口错误：{exc}")
+    finally:
+        await client.close()
+        await queue.stop()
+        print(f"\n队列统计 = {queue.stats()}")
+        logger.close()
+    print("完成。仅执行了只读请求，未调用任何写接口。")
 
 
 if __name__ == "__main__":

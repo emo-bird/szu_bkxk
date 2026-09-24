@@ -45,14 +45,20 @@ BASE_URL: str = "http://bkxk.szu.edu.cn/"
 SITE_HOME_URL: str = BASE_URL
 CAMPUS: str = "01"
 
-# 课程查询（方案内/方案外/校公选/体育/辅修/慕课）
+# 课程查询（方案内/方案外/体育/辅修）
 EP_PROGRAM_COURSE: str = "xsxkapp/sys/xsxkapp/elective/programCourse.do"
 # 课程查询（本班课程 TJKC）
 EP_RECOMMENDED_COURSE: str = "xsxkapp/sys/xsxkapp/elective/recommendedCourse.do"
+# 课程查询（校公选课 XGXK / 慕课 MOOC）—— 注意与 programCourse.do 不同
+EP_PUBLIC_COURSE: str = "xsxkapp/sys/xsxkapp/elective/publicCourse.do"
 # 已选课程结果查询
 EP_COURSE_RESULT: str = "xsxkapp/sys/xsxkapp/elective/courseResult.do"
 # 选课提交（写接口，默认禁用）
 EP_VOLUNTEER: str = "xsxkapp/sys/xsxkapp/elective/volunteer.do"
+# 课程收藏（写操作，见 docs/TODO.md，暂未接入）
+EP_FAVORITE: str = "xsxkapp/sys/xsxkapp/elective/favorite.do"
+# 选课批次查询（公开接口，返回 schoolTerm 等）
+EP_BATCH: str = "xsxkapp/sys/xsxkapp/elective/batch.do"
 # 选课入口页（备查，本工具不实现登录）
 EP_INDEX: str = "xsxkapp/sys/xsxkapp/*default/index.do"
 # 选课子页面：站点 JS 实测「必须带 token 参数」才能进入
@@ -70,11 +76,24 @@ TEACHING_CLASS_TYPES: dict[str, str] = {
     "MOOC": "慕课",
 }
 
-# 走 recommendedCourse.do 的课程类别，其余类别走 programCourse.do（待抓包校验）
-RECOMMENDED_COURSE_TYPES: frozenset[str] = frozenset({"TJKC"})
+# 【抓包实测】课程类别 → (查询接口, queryContent) 映射。
+# 依据 docs/har.json 中已登录会话的真实请求逐条核对得出：
+# 校公选课/慕课走 publicCourse.do 而非 programCourse.do；
+# 体育课程不查 MOOC；慕课的 MOOC 参数为 1 而非 2。
+COURSE_QUERY_PLAN: dict[str, tuple[str, str]] = {
+    "FANKC": (EP_PROGRAM_COURSE, "YCJX:2,MOOC:2,"),
+    "FAWKC": (EP_PROGRAM_COURSE, "YCJX:2,MOOC:2,"),
+    "TYKC": (EP_PROGRAM_COURSE, "YCJX:2,"),
+    "FXKC": (EP_PROGRAM_COURSE, "YCJX:2,MOOC:2,"),
+    "TJKC": (EP_RECOMMENDED_COURSE, "YCJX:2,MOOC:2,"),
+    "XGXK": (EP_PUBLIC_COURSE, "YCJX:2,MOOC:2,"),
+    "MOOC": (EP_PUBLIC_COURSE, "YCJX:2,MOOC:1,"),
+}
 
-# 查询分页大小（待抓包校验）
-QUERY_PAGE_SIZE: int = 100
+# 【抓包实测】服务器 pageNumber 为 **0 基**：pageNumber=0 才是第 1 页。
+QUERY_FIRST_PAGE: int = 0
+# 查询分页大小（与浏览器一致）
+QUERY_PAGE_SIZE: int = 10
 # 单个课程类别最多翻页数量，防止异常响应导致请求失控（待抓包校验后调整）
 QUERY_MAX_PAGES: int = 5
 

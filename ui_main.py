@@ -1021,7 +1021,9 @@ class MainWindow(QMainWindow):
     async def _fetch_courses(self, categories: list[str]) -> None:
         """依次拉取各课程类别的课程列表并汇总更新界面。
 
-        每个类别最多翻 ``config.QUERY_MAX_PAGES`` 页；单类别失败不影响其他类别。
+        分页按服务器语义处理：``pageNumber`` **从 0 开始**（``config.QUERY_FIRST_PAGE``），
+        每个类别最多翻 ``config.QUERY_MAX_PAGES`` 页；返回条数少于一页即视为最后一页。
+        单类别失败不影响其它类别；登录态失效时立即中止整轮。
 
         :param categories: 课程类别代码列表。
         :return: ``None``
@@ -1033,7 +1035,8 @@ class MainWindow(QMainWindow):
         for category in categories:
             label = config.TEACHING_CLASS_TYPES.get(category, category)
             got_any = False
-            for page in range(1, config.QUERY_MAX_PAGES + 1):
+            for offset in range(config.QUERY_MAX_PAGES):
+                page = config.QUERY_FIRST_PAGE + offset
                 try:
                     response = await self._client.query_courses(
                         category,
