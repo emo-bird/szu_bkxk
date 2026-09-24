@@ -310,6 +310,26 @@ icacls C:\Project /restore "$env:TEMP\szu_bkxk_dacl_backup.txt"
 > 都写在 **exe 所在目录**；只读资源（WebView2 SDK）在包内。这一点由 `config.APP_DIR`
 > 与 `config.RESOURCE_DIR` 区分处理，开发运行时两者都等于项目根目录。
 
+### 发布到 GitHub（可选）
+
+打包完成后，一条命令即可创建/更新 GitHub 发行并上传成品 zip：
+
+```powershell
+# 1) 让脚本能访问 GitHub API（Windows 上 git 已存好凭据时可直接取出）
+$env:GH_TOKEN = ((('protocol=https`nhost=github.com`n`n' | git credential fill) |
+    Select-String '^password=') -replace '^password=','').Trim()
+
+# 2) 发布（版本号取自 config.APP_VERSION，tag 为 v<版本>）
+.\.venv\Scripts\python.exe tools\publish_release.py
+```
+
+脚本会自动：读版本号 → 推送 tag → 创建/更新发行（说明取自 `build\release_notes.md`）→
+上传 `build\szu_bkxk-v<版本>-win64.zip`。**同名发行已存在则更新说明、附件已存在则跳过上传**，
+可反复安全执行。凭据只从环境变量读取，不会打印或写盘。
+
+> 手工等价操作：`git tag -a v0.3.1 -m "..."` → `git push origin v0.3.1` →
+> 在 GitHub 上点「Create release」并上传 zip。
+
 ## 十四、运行期设置（打包后无需重新打包）
 
 `config.py` 打包后会被**编译进 exe**，所以改 exe 旁边的 `.py` 文件无效。程序启动时会读取
