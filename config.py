@@ -133,6 +133,9 @@ ENABLE_WRITE_API: bool = False
 # ---------------------------------------------------------------------------
 # 总开关：关闭或环境不支持时，程序退化为纯 aiohttp 模式（不影响抢课功能）
 ENABLE_EMBEDDED_WEBVIEW: bool = True
+# 是否显示「课程查询」标签页。默认隐藏：凭证已由内嵌网页自动填充、课程也由它被动带来；
+# 若内嵌网页不可用，程序会**自动重新显示**该标签页，保证仍能手工填凭证与刷新查询。
+SHOW_COURSE_QUERY_TAB: bool = False
 # 内嵌 WebView2 的 CDP 调试端口（数据面全部走 CDP）
 WEBVIEW_DEBUG_PORT: int = 9340
 # WebView2 用户数据目录（保存登录态；已 gitignore，绝不入库）

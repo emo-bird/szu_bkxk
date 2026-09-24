@@ -1136,7 +1136,10 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.web_panel, "选课网页")
         self.tabs.addTab(self.task_panel, "抢课任务管理器")
         self.tabs.addTab(self.log_panel, "日志面板")
-        self.tabs.addTab(course_tab, "课程查询")
+        self._course_tab_index = self.tabs.addTab(course_tab, "课程查询")
+        # 默认隐藏「课程查询」：凭证已由内嵌网页自动填充、课程也由它被动带来。
+        # 但保留控件与逻辑（可一键恢复），且内嵌网页不可用时会自动重新显示。
+        self.tabs.setTabVisible(self._course_tab_index, config.SHOW_COURSE_QUERY_TAB)
         self.tabs.setCurrentIndex(0)
         self.setCentralWidget(self.tabs)
 
@@ -1300,6 +1303,16 @@ class MainWindow(QMainWindow):
         self._logger.error(config.SOURCE_COURSE, f"课程查询失败：{message}", config.CATEGORY_QUERY)
 
     # -- 其它动作 -----------------------------------------------------------
+    def show_course_query_tab(self) -> None:
+        """显示「课程查询」标签页。
+
+        内嵌网页不可用（被关闭 / 缺少 WebView2 SDK / pythonnet）时调用，
+        否则用户将没有任何手工填写凭证与刷新查询的入口。
+
+        :return: ``None``
+        """
+        self.tabs.setTabVisible(self._course_tab_index, True)
+
     def _current_token(self) -> str:
         """返回内嵌网页当前会话的 token（供选课页 URL 拼接）。
 
@@ -1319,6 +1332,7 @@ class MainWindow(QMainWindow):
         if not config.ENABLE_EMBEDDED_WEBVIEW:
             self.web_panel.disable("已在 config.ENABLE_EMBEDDED_WEBVIEW 中关闭")
             self._logger.info(config.SOURCE_SYSTEM, "内嵌网页已在配置中关闭，使用纯 aiohttp 模式。", config.CATEGORY_SYSTEM)
+            self.show_course_query_tab()
             return
         from webview_host import webview2_available
 
@@ -1326,6 +1340,7 @@ class MainWindow(QMainWindow):
         if not ok:
             self.web_panel.disable(reason)
             self._logger.warning(config.SOURCE_SYSTEM, f"内嵌网页不可用，已降级为纯 aiohttp 模式：{reason}", config.CATEGORY_SYSTEM)
+            self.show_course_query_tab()
             return
         self.web_panel.start()
 
