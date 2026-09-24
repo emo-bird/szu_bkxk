@@ -28,7 +28,7 @@ import asyncio
 import json
 import time
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, Mapping
 from urllib.parse import quote
 
 import aiohttp
@@ -325,7 +325,13 @@ class ApiClient:
             config.CATEGORY_QUERY,
         )
         text = await self._queue.submit(
-            lambda: self._post_form(path, form_data, headers, params={"timestamp": current_millis()}),
+            lambda: self._post_form(
+                path,
+                form_data,
+                headers,
+                params={"timestamp": current_millis()},
+                source=config.SOURCE_COURSE,
+            ),
             priority,
             name=f"课程查询-{teaching_class_type}-p{page_number}",
         )
@@ -350,7 +356,13 @@ class ApiClient:
         params = {"timestamp": current_millis(), "studentCode": credentials.student_code}
         headers = self._build_headers(credentials, use_token=False)
         text = await self._queue.submit(
-            lambda: self._post_form(config.EP_COURSE_RESULT, {}, headers, params=params),
+            lambda: self._post_form(
+                config.EP_COURSE_RESULT,
+                {},
+                headers,
+                params=params,
+                source=config.SOURCE_COURSE,
+            ),
             priority,
             name="已选课程结果查询",
         )
@@ -417,7 +429,12 @@ class ApiClient:
             config.CATEGORY_FAILURE,
         )
         text = await self._queue.submit(
-            lambda: self._post_form(config.EP_VOLUNTEER, form_data, headers),
+            lambda: self._post_form(
+                config.EP_VOLUNTEER,
+                form_data,
+                headers,
+                source=source,
+            ),
             priority,
             name=f"{action}-{teaching_class_id}",
         )
@@ -442,6 +459,7 @@ class ApiClient:
         form_data: dict[str, str],
         headers: dict[str, str],
         params: dict[str, str] | None = None,
+        source: str = config.SOURCE_SYSTEM,
     ) -> str:
         """发送 ``application/x-www-form-urlencoded`` POST 请求。
 
@@ -449,15 +467,22 @@ class ApiClient:
            本方法只允许被 :meth:`_queue.submit` 内部调用，是限流队列的实际执行体，
            **禁止**在业务代码中直接 ``await``。
 
+        .. note::
+           日志会完整输出**请求网址与表单内容**，便于排查问题；
+           **请求头不写入日志**（其中含有 Cookie 与 token 明文）。
+
         :param path: 相对接口路径。
         :param form_data: 表单字段；为空字典时不发送 body。
         :param headers: 请求头。
         :param params: 附加到 URL 的查询参数。
+        :param source: 日志来源模块，用于把该请求的日志归类到发起方。
         :return: 响应文本。
+        :raises NotAuthenticatedError: 服务器判定未登录（3xx 重定向 / 401 / HTML 页面）。
         :raises ApiError: 请求失败或响应状态码异常。
         """
         session = await self._ensure_session()
         url = config.BASE_URL + path
+        self._log_request(source, url, params, form_data)
         try:
             async with session.post(
                 url,
@@ -487,17 +512,46 @@ class ApiClient:
         except asyncio.TimeoutError as exc:
             raise ApiError(f"请求超时（>{config.REQUEST_TIMEOUT_SECONDS}s）：{url}") from exc
 
-    def _parse_json(self, text: str, action: str) -> dict[str, Any]:
-        """把响应文本解析为 JSON 字典。
+    def _log_request(
+        self,
+        source: str,
+        url: str,
+        params: Mapping[str, str] | None,
+        form_data: Mapping[str, str],
+    ) -> None:
+        """把本次请求的网址与表单内容写入日志（不含请求头）。
 
-        若返回的是 HTML 页面（登录态失效时服务器会返回首页或错误页），
-        统一抛出 :class:`NotAuthenticatedError`，给出可操作的提示。
+        :param source: 日志来源模块。
+        :param url: 不含查询参数的接口地址。
+        :param params: URL 查询参数。
+        :param form_data: 表单字段。
+        :return: ``None``
+        """
+        query = "&".join(f"{key}={value}" for key, value in (params or {}).items())
+        full_url = f"{url}?{query}" if query else url
+        body = json.dumps(form_data, ensure_ascii=False) if form_data else "（无表单内容）"
+        self._logger.info(
+            source,
+            f"发起请求 POST {full_url}  表单={body}",
+            config.CATEGORY_QUERY,
+        )
+
+    def _parse_json(self, text: str, action: str) -> dict[str, Any]:
+        """把响应文本解析为 JSON 字典，并识别服务器业务错误。
+
+        本方法处理三类失败：
+
+        1. 返回 HTML 页面 → 登录态失效；
+        2. ``code``/``msg`` 表明未登录（如 ``{"code":"302","msg":"未查询到登录信息"}``）
+           → 登录态失效；
+        3. 其它带 ``msg`` 但无 ``dataList`` 的响应 → 服务器业务错误，原样上报
+           ``code``/``msg``，便于用户定位（例如批次未开放、参数不合法）。
 
         :param text: 接口响应文本。
         :param action: 动作描述，用于错误文案。
         :return: 解析后的字典。
-        :raises NotAuthenticatedError: 响应为 HTML 页面，说明未通过认证。
-        :raises ApiError: 响应不是合法 JSON 对象。
+        :raises NotAuthenticatedError: 响应表明未登录。
+        :raises ApiError: 服务器业务错误或响应不是合法 JSON 对象。
         """
         stripped = text.lstrip()
         if stripped.startswith("<") or "<!DOCTYPE" in text[:200]:
@@ -511,4 +565,19 @@ class ApiClient:
             raise ApiError(f"{action} 返回内容不是合法 JSON：{text[:200]}") from exc
         if not isinstance(data, dict):
             raise ApiError(f"{action} 返回内容结构异常（期望 JSON 对象）：{text[:200]}")
+
+        code = str(data.get("code", "")).strip()
+        message = str(data.get("msg") or data.get("message") or "").strip()
+        if message and "dataList" not in data:
+            if code == "302" or "登录" in message or "认证" in message:
+                raise NotAuthenticatedError(
+                    f"{action} 登录态已失效：服务器返回 code={code}，msg={message}；"
+                    f"请在浏览器重新登录后重新复制 cookie 与 token。"
+                )
+            raise ApiError(f"{action} 服务器返回业务错误：code={code}，msg={message}")
+        if code == "302" or (message and "登录" in message):
+            raise NotAuthenticatedError(
+                f"{action} 登录态已失效：服务器返回 code={code}，msg={message}；"
+                f"请在浏览器重新登录后重新复制 cookie 与 token。"
+            )
         return data

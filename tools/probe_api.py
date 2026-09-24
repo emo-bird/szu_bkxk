@@ -29,6 +29,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import aiohttp
@@ -98,7 +99,7 @@ async def probe(session: aiohttp.ClientSession, label: str, path: str, data: dic
     :param data: 表单数据。
     :return: ``None``
     """
-    url = f"{SYS_BASE}{path}?timestamp={int(asyncio.get_running_loop().time() * 1000)}"
+    url = f"{SYS_BASE}{path}?timestamp={int(time.time() * 1000)}"
     try:
         async with session.post(
             url, headers=headers_from_env(), data=data or {}, allow_redirects=False

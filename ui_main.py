@@ -59,7 +59,13 @@ from PyQt6.QtWidgets import (
 import config
 import course_model as cm
 import task_model as tm
-from api_client import ApiClient, ApiError, MissingCredentialsError, build_elective_page_url
+from api_client import (
+    ApiClient,
+    ApiError,
+    MissingCredentialsError,
+    NotAuthenticatedError,
+    build_elective_page_url,
+)
 from auth_model import Credentials
 from logger_util import LogRecord, Logger
 from request_queue import QueueFullError
@@ -1036,6 +1042,10 @@ class MainWindow(QMainWindow):
                     )
                 except MissingCredentialsError as exc:
                     self.bridge.coursesFailed.emit(f"凭证缺失，已拒绝发起请求：{exc}")
+                    return
+                except NotAuthenticatedError as exc:
+                    # 登录态失效时立即中止整轮刷新，不再对其余类别发请求
+                    self.bridge.coursesFailed.emit(f"登录态已失效，已中止刷新：{exc}")
                     return
                 except (ApiError, QueueFullError) as exc:
                     failures.append(f"{label}：{exc}")
