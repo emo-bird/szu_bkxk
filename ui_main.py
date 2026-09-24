@@ -28,6 +28,7 @@ import asyncio
 import json
 import webbrowser
 from typing import Any, Callable, Coroutine
+from urllib.parse import quote
 
 from PyQt6.QtCore import Qt, pyqtSignal, QObject
 from PyQt6.QtGui import QAction, QBrush, QColor
@@ -943,14 +944,21 @@ class WebPagePanel(QWidget):
     #: 内嵌网页已就绪（可以启动数据面了）
     ready = pyqtSignal()
 
-    def __init__(self, logger: Logger, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        logger: Logger,
+        token_provider: Callable[[], str] | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
         """构建面板。
 
         :param logger: 日志器。
+        :param token_provider: 返回当前会话 token 的函数，用于给选课页 URL 拼 token。
         :param parent: 父控件。
         """
         super().__init__(parent)
         self._logger = logger
+        self._token_provider = token_provider
         self.host = None
 
         self.status_label = QLabel("内嵌网页尚未启动")
@@ -991,13 +999,35 @@ class WebPagePanel(QWidget):
         self.status_label.setText("正在创建内嵌 WebView2 …")
         self.host.start()
 
+    def target_url(self) -> str:
+        """返回当前应加载的地址。
+
+        站点自身跳转选课页时**总是拼上 token**
+        （``index.min.js``：``grablessons.do?token=`` + ``sessionStorage.token``）；
+        缺了它页面会报「系统异常」。因此：
+
+        * 已取得 token → 打开带 token 的选课页；
+        * 尚未登录 → 打开首页（登录入口），由站点自己完成后续跳转。
+
+        :return: 目标地址。
+        """
+        token = ""
+        if self._token_provider is not None:
+            try:
+                token = str(self._token_provider() or "").strip()
+            except Exception:  # noqa: BLE001 - 取 token 失败不应影响导航
+                token = ""
+        if token:
+            return f"{config.WEBVIEW_PAGE_URL}?token={quote(token)}"
+        return config.BASE_URL + config.EP_INDEX
+
     def reload(self) -> None:
         """重新载入选课页。
 
         :return: ``None``
         """
         if self.host is not None:
-            self.host.navigate(config.WEBVIEW_PAGE_URL)
+            self.host.navigate(self.target_url())
 
     def disable(self, reason: str) -> None:
         """停用内嵌网页（环境不支持或用户关闭了开关）。
@@ -1016,7 +1046,7 @@ class WebPagePanel(QWidget):
         self.status_label.setText("内嵌网页已就绪：请登录，然后点击卡片上的「+ 添加到抢课任务」")
         self.reload_button.setEnabled(True)
         self.real_browser_button.setEnabled(True)
-        self.host.navigate(config.WEBVIEW_PAGE_URL)
+        self.host.navigate(self.target_url())
         self.ready.emit()
 
     def _on_failed(self, message: str) -> None:
@@ -1084,7 +1114,7 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.credential_panel = CredentialPanel(credentials, logger)
         self.course_panel = CourseQueryPanel(logger)
-        self.web_panel = WebPagePanel(logger)
+        self.web_panel = WebPagePanel(logger, token_provider=self._current_token)
         self.task_panel = TaskPanel(logger, course_provider=self._course_candidates)
         self.log_panel = LogPanel(logger)
         self._webview_started = False
@@ -1267,6 +1297,14 @@ class MainWindow(QMainWindow):
         self._logger.error(config.SOURCE_COURSE, f"课程查询失败：{message}", config.CATEGORY_QUERY)
 
     # -- 其它动作 -----------------------------------------------------------
+    def _current_token(self) -> str:
+        """返回内嵌网页当前会话的 token（供选课页 URL 拼接）。
+
+        :return: token 字符串；尚未取得时返回空串。
+        """
+        bridge = getattr(self, "_bridge", None)
+        return str(getattr(bridge, "token", "") or "")
+
     def start_webview(self) -> None:
         """启动内嵌选课网页（环境不支持时自动降级为提示，不影响抢课功能）。
 

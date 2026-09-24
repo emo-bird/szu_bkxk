@@ -318,7 +318,7 @@ class WebViewBridge:
             while True:
                 await self._pump_once(cdp)
                 tick += 1
-                if tick % 20 == 0:
+                if tick % 10 == 0:
                     await self._refresh_session(cdp)
                 await asyncio.sleep(0.1)
 
