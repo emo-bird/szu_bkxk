@@ -9,41 +9,64 @@
   并导致误判「凭证是旧的」。`tools/probe_api.py` 已强制走队列；
   临时脚本也必须自己保证 ≥500ms 间隔。
 
-## P0-1｜重构路线可行性 spike（进行中，**需要你在普通终端跑一条命令**）
+## P0-1｜路线已定：**B+ = WebView2 内嵌 + CDP 取数**（进行中）
 
-**背景**：已确认「Edge + CDP」路线**零新增依赖、零下载**——本机已装
-Edge 153.0.4234.48 与 WebView2 Runtime 153.0.4234.48，且 aiohttp 自带 WebSocket，
-足够实现 CDP 客户端。
+**已决策**：走 B+。架构分层：
 
-**关键环境限制（已实测）**：本 AI 会话的沙箱**禁止命名管道**，
-而 Chromium 多进程架构（Mojo）依赖命名管道 —— 实测 Edge 启动即崩：
+| 层 | 由谁负责 | 说明 |
+| --- | --- | --- |
+| 内嵌网页窗口 | pythonnet + 官方 WebView2 SDK（Core API，**不用 WinForms**） | `CreateAsync` → `CreateCoreWebView2ControllerAsync(parentHwnd)` |
+| 数据面（凭证/取数/注入） | **CDP**（`cdp_bridge.py`，走 `--remote-debugging-port`） | 被动捕获，零额外请求 |
+| 抢课提交 | **仍由 Python 的 aiohttp** 走全局限流队列 + `ENABLE_WRITE_API` 守卫 | 保持不变 |
 
-```
-FATAL:mojo\public\cpp\platform\platform_channel.cc:183] Check failed: 拒绝访问。(0x5)
-```
+> 把数据面放在 CDP 上是有意为之：pythonnet 只负责「创建并摆放窗口」，
+> 万一 pythonnet 有问题，也只影响嵌入，不影响取数与抢课。
 
-因此**任何浏览器（Edge / QtWebEngine）都无法在 AI 沙箱内启动**。
-这有两个后果：
+### 已完成的环境准备
 
-1. spike 必须由你在普通 PowerShell 里运行（不影响我写代码与离线测试）；
-2. 若选择「QtWebEngine 内嵌」方案，我将**无法在本会话内运行程序做任何验证**，
-   每次改动都要你手工验证——这是选择路线时的重要成本。
+- [x] 系统 Edge 153.0.4234.48 / WebView2 Runtime 153.0.4234.48（均已装）
+- [x] `pythonnet 3.1.0` 安装成功（**必须 `PYTHONNET_RUNTIME=coreclr`**，默认 netfx 会失败）
+- [x] 官方 WebView2 SDK `1.0.4191.47` 解压到 `vendor/webview2/`（已 gitignore）
+- [x] 互操作层实测通过：程序集加载成功、`CoreWebView2EnvironmentOptions.AdditionalBrowserArguments`
+      可设置、`CreateCoreWebView2ControllerAsync` 存在
+- [x] `cdp_bridge.py` 正式模块，用假 CDP 服务**离线验证 8/8 通过**：
+      `wait_for_cdp`、`pick_target`（优先选中 szu 页面而非 about:blank）、`evaluate`、
+      `session_storage`、`poll_responses`（只收 `.do`）、响应体 JSON 解析、
+      `get_cookies`、`cookie_header`（正确过滤外域 cookie）
 
-**请在普通 PowerShell 中运行**（脚本不向学校发起任何业务请求，只旁听页面自身流量）：
+### 已有 spike 结论（A 路线的数据面，B+ 复用同一套代码）
 
-```powershell
-cd C:\Project\szu_bkxk
-.\.venv\Scripts\python.exe tools\spike_edge_login.py
-```
+你跑的 `tools/spike_edge_login.py` 输出见
+[`管理员 Windows PowerShell1.txt`](管理员%20Windows%20PowerShell1.txt)，结论：
 
-会弹出一个独立 profile 的 Edge 窗口（不影响你日常用的 Edge）：
-请在窗口里完成统一身份认证登录，脚本会自动继续，并把 4 项能力的
-`[OK]/[FAIL]` 结论打印出来。请把输出贴给我。
+| 能力 | 结果 |
+| --- | --- |
+| CDP 连接 | [OK] Edg/153.0.4234.48 |
+| 执行 JS | [OK] |
+| 被动捕获接口响应 | **[OK]** 捕到 20 个接口；`programCourse.do`/`publicCourse.do`/`queryCourse.do` 均拿到真实 JSON |
+| 登录后读取 cookie | [FAIL] ← **是我脚本的顺序 bug**：在登录**之前**就读了 cookie |
 
-- [ ] 等你的 spike 输出后，再在「方案1 纯内嵌网页」/「混合（网页只做登录+取数）」之间定稿。
-- [ ] spike 已离线验证：CDP 客户端（命令配对、`Runtime.evaluate`、
-      `Network.responseReceived` + `getResponseBody`、`Storage.getCookies`）
-      已用假 CDP 服务跑通 5/5 项。
+**两个脚本缺陷（已在新模块中修掉）**：
+1. cookie 读取时机在登录前 → `cdp_bridge` 的做法是登录后再读；
+2. `pick_target` 选中了 `about:blank` → 新实现优先选中地址含 `szu.edu.cn` 的目标；
+3. 抓到的响应体被我按 6000 字符截断后再解析，导致真实 JSON 被误报为「非 JSON」——
+   新实现先解析完整内容、只在展示时截断。
+
+### 下一步（唯一未验证项：能不能真嵌进 Qt 窗口）
+
+- [ ] **请你运行 B+ 嵌入 spike**（窗口在我沙箱里出不来，必须你跑）：
+
+      ```powershell
+      cd C:\Project\szu_bkxk
+      .\.venv\Scripts\python.exe tools\spike_webview2_embed.py
+      ```
+
+      它会验证 6 项：WebView2 内嵌、CDP 端口、执行 JS、登录后读 cookie、
+      **课程卡片上显示教学班ID**、被动捕获接口响应。请把输出贴给我。
+- [ ] 若嵌入通过 → 按 B+ 落地：新增 `webview_host.py`（窗口宿主）、
+      凭证改为从 `cdp_bridge` 自动读取、标签页接入内嵌页、卡片注入教学班ID。
+- [ ] 若嵌入失败（pythonnet/HWND/DPI 问题）→ 回退 A 路线（外部 Edge + CDP，零依赖），
+      `tools/spike_edge_login.py` 已改用同一套 `cdp_bridge`，可直接复测。
 
 ## P0-2｜已用有效凭证完成端到端验收 ✅
 

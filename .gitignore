@@ -233,3 +233,9 @@ __marimo__/
 .edge_profile/
 .edge_spike*/
 _edge_*.log
+
+# WebView2 SDK（官方 NuGet 包解压产物，含 8MB+ 二进制，不入库）
+vendor/
+
+# WebView2 运行期 profile（含登录态，绝不入库）
+.webview2_profile/

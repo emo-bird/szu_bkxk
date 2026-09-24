@@ -1,0 +1,74 @@
+Windows PowerShell
+版权所有（C） Microsoft Corporation。保留所有权利。
+
+安装最新的 PowerShell，了解新功能和改进！https://aka.ms/PSWindows
+
+PS C:\Users\<用户名>> cd C:\Project\szu_bkxk
+PS C:\Project\szu_bkxk> .\.venv\Scripts\python.exe tools\spike_edge_login.py
+=== 1. 启动 Edge（独立 profile，不影响日常浏览器）===
+    PID=36292  profile=.edge_profile
+    [OK] Edg/153.0.4234.48  (CDP 1.3)
+
+=== 2. 在页面里执行 JS ===
+    标题=''
+    地址=about:blank
+    [OK] 可执行 JS
+
+=== 3. 读取 cookie 存储（含 HttpOnly）===
+    [FAIL] 未读到站点 cookie（尚未登录时属正常）
+
+=== 4. 等待登录并被动捕获页面自身的接口响应 ===
+    …请在 Edge 窗口中完成统一身份认证登录（脚本会自动继续）
+    sessionStorage.token = aa5bc911-5…(len=36)
+
+    [被动捕获] 2026000000.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] batch.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] batchtoopen.do ×3
+        非 JSON（长度 0）：''
+    [被动捕获] celebrityfamous.do ×3
+        非 JSON（长度 0）：''
+    [被动捕获] courseResult.do ×3
+        非 JSON（长度 0）：''
+    [被动捕获] dictionary.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] grablessons.do ×3
+        非 JSON（长度 0）：''
+    [被动捕获] guideMap.do ×3
+        非 JSON（长度 0）：''
+    [被动捕获] image.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] index.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] login.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] onlineUsers.do ×4
+        非 JSON（长度 0）：''
+    [被动捕获] programCourse.do ×4
+        非 JSON（长度 6000）：'{"totalCount":11,"dataList":[{"tcList":[{"extInfo":"学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。\\n同时选课可能会造成期末考试时间冲突。","teachingClassID'
+    [被动捕获] publicCourse.do ×2
+        非 JSON（长度 6000）：'{"totalCount":26,"dataList":[{"extInfo":"2学分MOOC课程，考核方式为线上(含线上考试)。UOOC平台学习网址：uooc.net.cn。线上考试事宜关注UOOC平台课程公告，没有缓考或补考。选课结束'
+    [被动捕获] publicinfo.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] queryCourse.do ×1
+        非 JSON（长度 6000）：'{"totalCount":5640,"dataList":[{"extInfo":null,"electiveBatchCode":null,"campus":"01","teachingClassID":"202620271010017'
+    [被动捕获] recommendedCourse.do ×4
+        非 JSON（长度 0）：''
+    [被动捕获] sysparam.do ×1
+        非 JSON（长度 0）：''
+    [被动捕获] unsuccessful.do ×3
+        非 JSON（长度 0）：''
+    [被动捕获] vcode.do ×1
+        非 JSON（长度 0）：''
+    [OK] 已能从页面自身流量中拿到接口 JSON（无需额外发请求）
+
+=== spike 结论 ===
+    [OK] CDP 连接
+    [OK] 执行 JS
+    [FAIL] 读取 cookie
+    [OK] 被动捕获接口响应
+
+存在未通过项，见上面逐项说明。
+Edge 窗口保留（关闭它不影响；下次运行会复用同一 profile，登录态可保持）。
+PS C:\Project\szu_bkxk>
