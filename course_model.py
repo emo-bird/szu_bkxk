@@ -323,7 +323,9 @@ def parse_courses(
     courses: list[Course] = []
     for course, tc_info in iter_teaching_classes(api_response):
         merged: dict[str, Any] = dict(course)
-        merged.update(tc_info)
+        # 只合并教学班级级的非空字段：直接 update 会让 None 覆盖掉课程级的有效值
+        # （实测 recommendedCourse.do 的 tcList 里确实存在 null 字段）
+        merged.update({key: value for key, value in tc_info.items() if value is not None})
 
         teaching_class_id = _pick(merged, _CLASS_ID_CANDIDATES)
         capacity = _to_int(_pick(merged, _CAPACITY_CANDIDATES, "0"))
@@ -371,7 +373,9 @@ def extract_capacity(
     target = str(teaching_class_id).strip()
     for course, tc_info in iter_teaching_classes(api_response):
         merged: dict[str, Any] = dict(course)
-        merged.update(tc_info)
+        # 只合并教学班级级的非空字段：直接 update 会让 None 覆盖掉课程级的有效值
+        # （实测 recommendedCourse.do 的 tcList 里确实存在 null 字段）
+        merged.update({key: value for key, value in tc_info.items() if value is not None})
         current_id = _pick(merged, _CLASS_ID_CANDIDATES)
         if current_id != target:
             continue

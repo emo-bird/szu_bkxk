@@ -54,8 +54,10 @@ from PyQt6.QtCore import QTimer  # noqa: E402
 from PyQt6.QtWidgets import (  # noqa: E402
     QApplication,
     QDialog,
+    QHBoxLayout,
     QLabel,
     QMainWindow,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -124,11 +126,18 @@ INJECT_PAGE_SCRIPT = r"""
     return '';
   }
 
+  function ownText(el) {
+    if (!el) { return ''; }
+    var clone = el.cloneNode(true);
+    var extra = clone.querySelector('.cv-detail');
+    if (extra && extra.parentNode) { extra.parentNode.removeChild(extra); }
+    return (clone.textContent || '').trim();
+  }
+
   function rowInfo(card) {
     var row = card.closest ? card.closest('.cv-row') : null;
     function text(selector) {
-      var el = row ? row.querySelector(selector) : null;
-      return el ? (el.textContent || '').trim() : '';
+      return ownText(row ? row.querySelector(selector) : null);
     }
     return {
       courseName: text('.cv-course'),
@@ -372,7 +381,7 @@ def learn_classes(item: cdp_bridge.CapturedResponse) -> int:
         for tc in course.get("tcList") or []:
             if isinstance(tc, dict):
                 row = dict(course)
-                row.update(tc)
+                row.update({k: v for k, v in tc.items() if v is not None})
                 row["teachingClassType"] = class_type
                 candidates.append(row)
         for row in candidates:
@@ -440,6 +449,81 @@ def open_task_dialog(payload_json: str) -> None:
         print("[取消] 已在对话框中取消，未创建任务")
 
 
+def open_in_real_browser(state: dict) -> None:
+    """把本次会话的 token + cookie 带到独立的真实 Edge 窗口里打开选课页。
+
+    **为什么不能直接丢给系统默认浏览器**：站点接口鉴权要求 cookie 与 token
+    属于**同一个会话**，而我们的会话在 WebView2 的独立 profile 里，日常浏览器的
+    cookie 与之不匹配。因此这里的做法是：启动一个专用 profile 的 Edge
+    （开 CDP 端口）→ 用 CDP ``Network.setCookie`` 把本会话的 cookie 写进去 →
+    再用带 token 的地址导航。这样得到的是一个**功能完整的真实 Edge 窗口**，
+    但它使用独立 profile，不会污染你日常浏览器的数据。
+
+    :param state: 共享状态字典（``token`` / ``cookies``）。
+    """
+    token = str(state.get("token") or "")
+    cookies = list(state.get("cookies") or [])
+    if not token:
+        print("[提示] 尚未取得会话（请先在内嵌网页里完成登录）")
+        return
+    print(f"\n[浏览器] 准备用本次会话打开真实浏览器窗口：cookie {len(cookies)} 条，token {token[:8]}…")
+    threading.Thread(target=_open_in_real_browser_async, args=(state,), daemon=True).start()
+
+
+def _open_in_real_browser_async(state: dict) -> None:
+    """后台线程入口：跑异步的「打开真实浏览器」流程。
+
+    :param state: 共享状态字典。
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(_open_in_real_browser(state))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[FAIL] 打开真实浏览器失败：{type(exc).__name__}: {exc}")
+        traceback.print_exc()
+    finally:
+        loop.close()
+
+
+async def _open_in_real_browser(state: dict) -> None:
+    """异步实现：启动 Edge → 写入 cookie → 带 token 导航 → 校验登录态。
+
+    :param state: 共享状态字典。
+    """
+    port = DEBUG_PORT + 10
+    profile_dir = PROJECT_ROOT / ".edge_real_profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    cdp_bridge.launch_edge(port, profile_dir, url="about:blank")
+    try:
+        version = await cdp_bridge.wait_for_cdp(port, timeout=40)
+        print(f"    已启动：{version.get('Browser')}（独立 profile {profile_dir.name}）")
+    except Exception as exc:  # noqa: BLE001
+        print(f"    启动 Edge 失败：{exc}")
+        return
+
+    target = await cdp_bridge.pick_target(port, prefer_host="szu.edu.cn")
+    async with cdp_bridge.CdpClient(target["webSocketDebuggerUrl"]) as cdp:
+        await cdp.enable()
+        written = await cdp.set_cookies(list(state.get("cookies") or []), config.BASE_URL)
+        print(f"    已写入 {written} 条 cookie")
+        await cdp.navigate(f"{GRAB_URL}?token={state.get('token')}")
+        for _ in range(20):
+            await asyncio.sleep(0.5)
+            cards = await cdp.evaluate("document.querySelectorAll('.cv-course-card').length")
+            if int(cards or 0) > 0:
+                break
+        title = await cdp.evaluate("document.title")
+        href = await cdp.evaluate("location.href")
+        print(f"    页面标题 = {title!r}")
+        print(f"    页面地址 = {str(href)[:90]}")
+        print(f"    课程卡片数 = {cards}")
+        if int(cards or 0) > 0:
+            print("[OK] 本次会话的 token + cookie 在真实浏览器里**可直接使用**（已登录状态）")
+        else:
+            print("[警告] 页面未渲染出课程卡片，可能未登录成功（可看窗口确认）")
+
+
 def run_cdp_checks(results: dict[str, bool], state: dict) -> None:
     """后台线程入口：跑完 CDP 数据面检查。
 
@@ -456,6 +540,55 @@ def run_cdp_checks(results: dict[str, bool], state: dict) -> None:
     finally:
         loop.close()
         state["done"] = True
+
+
+async def _pump(cdp: cdp_bridge.CdpClient, state: dict, stats: dict, results: dict) -> None:
+    """常驻消息泵：持续消费 CDP 事件与网页回传，保证点击后**立即**响应。
+
+    之前把回传读取放在「被动捕获 15 秒」之后，导致窗口期内的点击最多要压 15 秒
+    才被处理。现在改为独立协程常驻运行：
+
+    * 每轮抓取响应体 → 登记教学班档案（供任务自动填充）；
+    * 每轮取走 ``Runtime.bindingCalled`` → 立刻投递给 Qt 主线程弹窗；
+    * 顺带定期刷新会话凭证缓存，供「在浏览器打开」按钮取用。
+
+    :param cdp: CDP 会话。
+    :param state: 共享状态字典（``inbox`` 队列 / 凭证缓存）。
+    :param stats: 统计字典，就地更新。
+    :param results: 结果字典，就地更新。
+    """
+    tick = 0
+    while True:
+        for item in await cdp.poll_responses():
+            stats["total"] = stats.get("total", 0) + 1
+            counts = stats.setdefault("counts", {})
+            counts[item.endpoint] = counts.get(item.endpoint, 0) + 1
+            if item.endpoint not in stats.setdefault("samples", {}):
+                data = item.json_or_none()
+                if data:
+                    desc = f"code={data.get('code')!r} msg={data.get('msg')!r}"
+                    data_list = data.get("dataList")
+                    if isinstance(data_list, list):
+                        desc += f" dataList={len(data_list)}条"
+                    if item.teaching_class_type():
+                        desc += f" teachingClassType={item.teaching_class_type()}"
+                    stats["samples"][item.endpoint] = desc
+            learn_classes(item)
+
+        for payload in cdp.take_bindings(BINDING_NAME):
+            state["clicked"] = True
+            state["inbox"].put(payload)
+            results["网页按钮回传Python并弹窗"] = True
+
+        tick += 1
+        if tick % 20 == 0:
+            # 定期刷新凭证缓存（点击「在浏览器打开」时要用最新会话）
+            try:
+                state["token"] = await cdp.session_storage("token")
+                state["cookies"] = await cdp.get_cookies([config.BASE_URL])
+            except Exception:  # noqa: BLE001
+                pass
+        await asyncio.sleep(0.1)
 
 
 async def _cdp_checks(results: dict[str, bool], state: dict) -> None:
@@ -504,6 +637,8 @@ async def _cdp_checks(results: dict[str, bool], state: dict) -> None:
         names = [p.split("=")[0] for p in cookie_header.split("; ") if "=" in p]
         print(f"    Cookie 头长度 = {len(cookie_header)}，名称 = {names}")
         results["登录后读取 cookie"] = bool(cookie_header) and "JSESSIONID" in cookie_header
+        state["token"] = token
+        state["cookies"] = await cdp.get_cookies([config.BASE_URL])
 
         print("\n=== [5] 注入教学班ID、抢课按钮与卡片高度修正 ===")
         await cdp.inject_on_new_document(INJECT_PAGE_SCRIPT)
@@ -527,51 +662,32 @@ async def _cdp_checks(results: dict[str, bool], state: dict) -> None:
         print(f"    卡片高度 = {diag.get('cardHeight')}（原样式固定 210px，已覆盖为 252px）")
         print(f"    样式已注入 = {diag.get('styleInjected')}｜按钮绑定可用 = {diag.get('bindingAvailable')}")
 
+        # 启动常驻消息泵：此后点按钮**立即**响应，不再等后续步骤
+        stats: dict = {}
+        pump = asyncio.create_task(_pump(cdp, state, stats, results))
+
         print("\n=== [6] 被动捕获接口响应（零额外请求）===")
-        captured = await cdp.capture(15)
-        for item in captured:
-            learn_classes(item)
-        counts: dict[str, int] = {}
-        samples: dict[str, str] = {}
-        for item in captured:
-            counts[item.endpoint] = counts.get(item.endpoint, 0) + 1
-            if item.endpoint in samples:
-                continue
-            data = item.json_or_none()
-            if not data:
-                continue
-            desc = f"code={data.get('code')!r} msg={data.get('msg')!r}"
-            data_list = data.get("dataList")
-            if isinstance(data_list, list):
-                desc += f" dataList={len(data_list)}条"
-            if item.teaching_class_type():
-                desc += f" teachingClassType={item.teaching_class_type()}"
-            samples[item.endpoint] = desc
-        print(f"    捕获接口数 = {len(counts)}，总条数 = {len(captured)}，已知教学班 {len(KNOWN_CLASSES)} 个")
+        await asyncio.sleep(12)
+        counts = stats.get("counts", {})
+        samples = stats.get("samples", {})
+        print(f"    捕获接口数 = {len(counts)}，总条数 = {stats.get('total', 0)}，"
+              f"已知教学班 {len(KNOWN_CLASSES)} 个")
         for endpoint, count in sorted(counts.items()):
             print(f"      {endpoint} ×{count}" + (f"  {samples[endpoint]}" if endpoint in samples else ""))
-        results["被动捕获接口响应"] = any(item.json_or_none() for item in captured)
+        results["被动捕获接口响应"] = bool(KNOWN_CLASSES)
 
-        print("\n=== [7] 等待点击网页上的「+ 添加到抢课任务」 ===")
-        print("    请在网页里点击任意课程卡片上的蓝色按钮，Python 会弹出抢课任务窗口并自动填充")
-        clicked = False
+        print("\n=== [7] 点击网页上的「+ 添加到抢课任务」 ===")
+        print("    请在网页里点击任意课程卡片上的蓝色按钮，Python 会**立即**弹出抢课任务窗口")
         end = time.monotonic() + CLICK_WAIT
-        last_hint = time.monotonic()
-        while time.monotonic() < end:
-            for item in await cdp.poll_responses():
-                learn_classes(item)
-            for payload in cdp.take_bindings(BINDING_NAME):
-                clicked = True
-                state["inbox"].put(payload)
-            if state.get("dialog_done"):
-                break
-            if time.monotonic() - last_hint > 45:
-                last_hint = time.monotonic()
-                print(f"    …仍在等待点击（剩余 {int(end - time.monotonic())} 秒）")
-            await asyncio.sleep(0.4)
-        results["网页按钮回传Python并弹窗"] = clicked
-        if not clicked:
+        while time.monotonic() < end and not state.get("dialog_done"):
+            await asyncio.sleep(0.2)
+        if not state.get("clicked"):
             print("    [FAIL] 未收到网页按钮回传（超时）")
+        pump.cancel()
+        try:
+            await pump
+        except asyncio.CancelledError:
+            pass
 
 
 def main() -> int:
@@ -629,9 +745,19 @@ def main() -> int:
     window.resize(1180, 860)
     central = QWidget()
     layout = QVBoxLayout(central)
-    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setContentsMargins(6, 6, 6, 6)
+
+    toolbar = QHBoxLayout()
     hint = QLabel("正在创建内嵌 WebView2 …（若长时间无变化，请看控制台输出）")
-    layout.addWidget(hint)
+    browser_button = QPushButton("在真实浏览器打开（用本次会话）")
+    browser_button.setToolTip(
+        "启动一个独立 profile 的 Edge，把本次会话的 token + cookie 写进去并打开选课页。\n"
+        "不会影响你日常浏览器的数据。"
+    )
+    toolbar.addWidget(browser_button)
+    toolbar.addWidget(hint, 1)
+    layout.addLayout(toolbar)
+
     container = WebContainer(apply_bounds)
     container.setStyleSheet("background:#eee;")
     layout.addWidget(container, 1)
@@ -711,9 +837,11 @@ def main() -> int:
             state["dialog_done"] = True
 
     inbox_timer = QTimer()
-    inbox_timer.setInterval(200)
+    inbox_timer.setInterval(80)
     inbox_timer.timeout.connect(drain_inbox)
     inbox_timer.start()
+
+    browser_button.clicked.connect(lambda: open_in_real_browser(state))
 
     def watch() -> None:
         """收尾：后台任务结束或出错时退出，并防止整体卡死。"""

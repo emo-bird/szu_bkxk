@@ -291,6 +291,40 @@ class CdpClient:
             return str(raw or "")
         return "; ".join(parts)
 
+    async def set_cookies(self, cookies: list[dict], url: str) -> int:
+        """把 cookie 写入当前浏览器（用于把登录会话带到另一个浏览器实例）。
+
+        :param cookies: ``get_cookies`` 返回的 cookie 字典列表。
+        :param url: 这些 cookie 归属的地址（CDP 需要用它推断域）。
+        :return: 写入成功的条数。
+        """
+        written = 0
+        for cookie in cookies:
+            name = cookie.get("name")
+            if not name:
+                continue
+            params: dict[str, Any] = {
+                "name": name,
+                "value": cookie.get("value", ""),
+                "url": url,
+                "path": cookie.get("path") or "/",
+                "httpOnly": bool(cookie.get("httpOnly")),
+                "secure": bool(cookie.get("secure")),
+            }
+            domain = str(cookie.get("domain") or "")
+            if domain:
+                params["domain"] = domain
+            expires = cookie.get("expires")
+            if isinstance(expires, (int, float)) and expires > 0:
+                params["expires"] = expires
+            try:
+                response = await self.call("Network.setCookie", params, timeout=8)
+            except Exception:  # noqa: BLE001 - 个别 cookie 写失败不影响其余
+                continue
+            if response.get("result", {}).get("success"):
+                written += 1
+        return written
+
     async def session_storage(self, key: str = "token") -> str:
         """读取页面 ``sessionStorage`` 中的值。
 
