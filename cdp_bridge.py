@@ -334,6 +334,52 @@ class CdpClient:
         value = await self.evaluate(f"sessionStorage.getItem({json.dumps(key)})")
         return str(value or "")
 
+    async def dump_session_storage(self) -> dict[str, str]:
+        """导出当前页面 ``sessionStorage`` 的全部键值。
+
+        站点的选课页依赖 ``sessionStorage`` 里的 ``token``、``studentInfo``、
+        ``currentBatch`` 等多项数据（``grablessons.js`` 会直接
+        ``JSON.parse(sessionStorage.getItem('studentInfo'))``，
+        缺了会抛异常导致**课程列表渲染不出来**），
+        因此把会话迁移到另一个浏览器时必须整体复制，而不能只传 token。
+
+        :return: 键到值的映射；读取失败返回空字典。
+        """
+        script = (
+            "(function(){var o={};for(var i=0;i<sessionStorage.length;i++){"
+            "var k=sessionStorage.key(i);o[k]=sessionStorage.getItem(k);}"
+            "return JSON.stringify(o);})()"
+        )
+        raw = await self.evaluate(script)
+        try:
+            data = json.loads(str(raw or "{}"))
+        except (json.JSONDecodeError, TypeError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        return {str(key): "" if value is None else str(value) for key, value in data.items()}
+
+    async def restore_session_storage(self, items: dict[str, str]) -> int:
+        """把键值写入当前页面的 ``sessionStorage``。
+
+        .. note::
+           必须先在目标站点源上打开任意页面，``sessionStorage`` 才有归属的源。
+
+        :param items: 键到值的映射（通常来自 :meth:`dump_session_storage`）。
+        :return: 成功写入的条目数。
+        """
+        if not items:
+            return 0
+        script = (
+            "(function(){var d=" + json.dumps(items, ensure_ascii=False) + ";var n=0;"
+            "for(var k in d){sessionStorage.setItem(k,d[k]);n++;}return n;})()"
+        )
+        value = await self.evaluate(script)
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
     # -- 被动捕获 -----------------------------------------------------------
     async def poll_responses(self, want_do_only: bool = True) -> list[CapturedResponse]:
         """处理已就绪的响应事件，尽力抓取响应体（非阻塞，可循环调用）。

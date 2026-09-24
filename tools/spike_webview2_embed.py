@@ -466,8 +466,26 @@ def open_in_real_browser(state: dict) -> None:
     if not token:
         print("[提示] 尚未取得会话（请先在内嵌网页里完成登录）")
         return
-    print(f"\n[浏览器] 准备用本次会话打开真实浏览器窗口：cookie {len(cookies)} 条，token {token[:8]}…")
+    print(f"\n[浏览器] 准备用本次会话打开真实浏览器窗口：cookie {len(cookies)} 条，"
+          f"sessionStorage {len(state.get('session_storage') or {})} 项，token {token[:8]}…")
+    state["browser_busy"] = True
     threading.Thread(target=_open_in_real_browser_async, args=(state,), daemon=True).start()
+
+
+def open_in_system_browser() -> None:
+    """用系统默认浏览器打开选课网页（会出现在你日常浏览器的标签页里）。
+
+    .. note::
+       这条路径**不注入**我们的会话：日常浏览器有自己的 cookie/存储，
+       页面的登录模块会用它自己的会话（含统一身份认证 SSO）自动处理。
+       若那边登录态已过期，页面会引导你重新登录。
+       它的好处是标签页就在你日常浏览器里，能与其他标签页共存。
+    """
+    import webbrowser
+
+    url = config.SITE_HOME_URL
+    print(f"\n[系统浏览器] 已请求打开 {url}（使用你日常浏览器的会话；若已过期请在该窗口重新登录）")
+    webbrowser.open(url)
 
 
 def _open_in_real_browser_async(state: dict) -> None:
@@ -484,10 +502,16 @@ def _open_in_real_browser_async(state: dict) -> None:
         traceback.print_exc()
     finally:
         loop.close()
+        state["browser_busy"] = False
 
 
 async def _open_in_real_browser(state: dict) -> None:
-    """异步实现：启动 Edge → 写入 cookie → 带 token 导航 → 校验登录态。
+    """异步实现：启动 Edge → 写入 cookie 与 sessionStorage → 带 token 导航 → 校验登录态。
+
+    .. note::
+       只带 token（URL 传参）是不够的：选课页的 ``grablessons.js`` 会
+       ``JSON.parse(sessionStorage.getItem('studentInfo'))``，缺这一项会直接抛异常，
+       表现为**页面能打开但不显示课程**。因此必须把整个 ``sessionStorage`` 复制过去。
 
     :param state: 共享状态字典。
     """
@@ -507,21 +531,30 @@ async def _open_in_real_browser(state: dict) -> None:
         await cdp.enable()
         written = await cdp.set_cookies(list(state.get("cookies") or []), config.BASE_URL)
         print(f"    已写入 {written} 条 cookie")
+
+        # 先在站点源上落地，才能写 sessionStorage
+        await cdp.navigate(config.BASE_URL + config.EP_INDEX)
+        await asyncio.sleep(2.5)
+        storage = dict(state.get("session_storage") or {})
+        restored = await cdp.restore_session_storage(storage)
+        print(f"    已恢复 sessionStorage {restored} 项：{sorted(storage)[:8]}")
+
         await cdp.navigate(f"{GRAB_URL}?token={state.get('token')}")
-        for _ in range(20):
+        cards = 0
+        for _ in range(24):
             await asyncio.sleep(0.5)
-            cards = await cdp.evaluate("document.querySelectorAll('.cv-course-card').length")
-            if int(cards or 0) > 0:
+            cards = int(await cdp.evaluate("document.querySelectorAll('.cv-course-card').length") or 0)
+            if cards > 0:
                 break
         title = await cdp.evaluate("document.title")
         href = await cdp.evaluate("location.href")
         print(f"    页面标题 = {title!r}")
         print(f"    页面地址 = {str(href)[:90]}")
         print(f"    课程卡片数 = {cards}")
-        if int(cards or 0) > 0:
-            print("[OK] 本次会话的 token + cookie 在真实浏览器里**可直接使用**（已登录状态）")
+        if cards > 0:
+            print("[OK] 本次会话的 token + cookie + sessionStorage 在真实浏览器里**可直接使用**")
         else:
-            print("[警告] 页面未渲染出课程卡片，可能未登录成功（可看窗口确认）")
+            print("[警告] 页面未渲染出课程卡片，可看窗口确认（F12 控制台会有具体报错）")
 
 
 def run_cdp_checks(results: dict[str, bool], state: dict) -> None:
@@ -582,10 +615,11 @@ async def _pump(cdp: cdp_bridge.CdpClient, state: dict, stats: dict, results: di
 
         tick += 1
         if tick % 20 == 0:
-            # 定期刷新凭证缓存（点击「在浏览器打开」时要用最新会话）
+            # 定期刷新会话快照（点击「在浏览器打开」时要用最新会话）
             try:
                 state["token"] = await cdp.session_storage("token")
                 state["cookies"] = await cdp.get_cookies([config.BASE_URL])
+                state["session_storage"] = await cdp.dump_session_storage()
             except Exception:  # noqa: BLE001
                 pass
         await asyncio.sleep(0.1)
@@ -714,6 +748,11 @@ def main() -> int:
         "controller": None,
         "done": False,
         "dialog_done": False,
+        "clicked": False,
+        "browser_busy": False,
+        "token": "",
+        "cookies": [],
+        "session_storage": {},
         "inbox": queue.Queue(),
     }
 
@@ -751,10 +790,16 @@ def main() -> int:
     hint = QLabel("正在创建内嵌 WebView2 …（若长时间无变化，请看控制台输出）")
     browser_button = QPushButton("在真实浏览器打开（用本次会话）")
     browser_button.setToolTip(
-        "启动一个独立 profile 的 Edge，把本次会话的 token + cookie 写进去并打开选课页。\n"
+        "启动一个独立 profile 的 Edge，把本次会话的 cookie 与 sessionStorage 写进去并打开选课页。\n"
         "不会影响你日常浏览器的数据。"
     )
+    system_button = QPushButton("在系统默认浏览器打开")
+    system_button.setToolTip(
+        "用系统默认浏览器打开选课首页（标签页会出现在你日常浏览器里）。\n"
+        "该路径使用你日常浏览器自己的会话；若已过期，页面会引导重新登录。"
+    )
     toolbar.addWidget(browser_button)
+    toolbar.addWidget(system_button)
     toolbar.addWidget(hint, 1)
     layout.addLayout(toolbar)
 
@@ -842,15 +887,22 @@ def main() -> int:
     inbox_timer.start()
 
     browser_button.clicked.connect(lambda: open_in_real_browser(state))
+    system_button.clicked.connect(open_in_system_browser)
 
     def watch() -> None:
-        """收尾：后台任务结束或出错时退出，并防止整体卡死。"""
+        """收尾：后台任务结束或出错时退出，并防止整体卡死。
+
+        「在真实浏览器打开」是后台线程任务，进行中不允许退出，
+        否则脚本会在它打印结果之前结束（上一版就是这么丢掉输出的）。
+        """
         if state.get("error"):
             print(f"[FAIL] {state['error']}")
             app.quit()
+        elif state.get("browser_busy"):
+            return
         elif state.get("done"):
             app.quit()
-        elif time.monotonic() - state.setdefault("start", time.monotonic()) > CHECK_TIMEOUT + CLICK_WAIT + 120:
+        elif time.monotonic() - state.setdefault("start", time.monotonic()) > CHECK_TIMEOUT + CLICK_WAIT + 240:
             print("[FAIL] 总时长超时，强制退出")
             app.quit()
 

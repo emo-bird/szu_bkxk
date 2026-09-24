@@ -1,0 +1,77 @@
+Windows PowerShell
+版权所有（C） Microsoft Corporation。保留所有权利。
+
+安装最新的 PowerShell，了解新功能和改进！https://aka.ms/PSWindows
+
+PS C:\Users\<用户名>> cd C:\Project\szu_bkxk
+PS C:\Project\szu_bkxk> .\.venv\Scripts\python.exe tools\spike_webview2_embed.py
+=== [1] 创建内嵌 WebView2 ===
+    父窗口 HWND = 132404，容器逻辑尺寸 = 1168x736，DPR = 2.0
+    CreateAsync 完成，正在创建 Controller …
+    [OK] Controller 创建成功，Bounds 已同步
+
+=== [2] 连接 CDP ===
+    [OK] Edg/153.0.4234.48 (CDP 1.3)
+    目标页面 = http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*default/grablessons.do
+
+=== [3] 执行 JS ===
+    标题='选课'
+    地址=http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*default/index.do
+
+=== [4] 等待登录，然后读取凭证 ===
+    …请在窗口中完成统一身份认证登录
+    sessionStorage.token = 2aea8720-4…
+    Cookie 头长度 = 178，名称 = ['_WEU', 'JSESSIONID', 'route', 'insert_cookie']
+
+=== [5] 注入教学班ID、抢课按钮与卡片高度修正 ===
+    注入结果 = {"cards": 28, "tags": 28, "buttons": 28, "sample": "教学班ID: 202620271190060000118", "diag": {"hookInstalled": true, "booted": true, "styleInjected": true, "bindingAvailable": true, "cardHeight": "252px", "url": "http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*default/grablessons.do?token=2aea8720-47da-4a38-9f32-1f3e4e35b711", "cardId": "202620271190060000118_courseDiv", "childTcId": "202620271190060000118"}}
+    卡片上显示 = 教学班ID: 202620271190060000118
+    卡片高度 = 252px（原样式固定 210px，已覆盖为 252px）
+    样式已注入 = True｜按钮绑定可用 = True
+
+=== [6] 被动捕获接口响应（零额外请求）===
+
+[回传] 教学班ID = 202620271190060000101
+       课程 = 高等数学A（1）｜教师 = [01]傅赢芳｜课程号 = 1900600001｜课程总号 = 19006000
+       类别 = 方案内课程（来自被动捕获的 querySetting）
+[OK] 已创建抢课任务：高等数学A（1）｜方案内课程｜间隔 1500ms｜满课后停止
+     教学班ID = 202620271190060000101（可在对话框里修改后再确认）
+
+[浏览器] 准备用本次会话打开真实浏览器窗口：cookie 4 条，token 2aea8720…
+    已启动：Edg/153.0.4234.48（独立 profile .edge_real_profile）
+    已写入 4 条 cookie
+    捕获接口数 = 18，总条数 = 21，已知教学班 123 个
+      2026000000.do ×1
+      batch.do ×1
+      batchtoopen.do ×1  code='1' msg='0'
+      celebrityfamous.do ×1  code='1' msg='查询名人名言成功' dataList=0条
+      courseResult.do ×1  code='1' msg='查询选课结果成功' dataList=11条
+      dictionary.do ×1
+      grablessons.do ×1
+      guideMap.do ×1  code='1' msg='已读引导页'
+      image.do ×1
+      index.do ×1
+      login.do ×1
+      onlineUsers.do ×2  code='1' msg='查询在线人数成功'
+      programCourse.do ×2  code='1' msg='查询方案内选课成功' dataList=10条 teachingClassType=FANKC
+      publicinfo.do ×1
+      recommendedCourse.do ×2  code='1' msg='查询推荐选课成功' dataList=7条 teachingClassType=TJKC
+      sysparam.do ×1
+      unsuccessful.do ×1  code='1' msg='查询学生退课日志成功' dataList=0条
+      vcode.do ×1
+
+=== [7] 点击网页上的「+ 添加到抢课任务」 ===
+    请在网页里点击任意课程卡片上的蓝色按钮，Python 会**立即**弹出抢课任务窗口
+
+=== spike 结论 ===
+    [OK] WebView2 内嵌到 Qt 窗口
+    [OK] CDP 端口可达
+    [OK] 执行 JS
+    [OK] 登录后读取 cookie
+    [OK] 卡片显示教学班ID与抢课按钮
+    [OK] 被动捕获接口响应
+    [OK] 网页按钮回传Python并弹窗
+
+全部通过：B+ 路线可行。
+已知教学班档案 = 123 个
+PS C:\Project\szu_bkxk>
