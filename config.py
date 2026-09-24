@@ -186,7 +186,7 @@ WRITE_API_SOURCE: str = (
 # 应用信息
 # ---------------------------------------------------------------------------
 APP_NAME: str = "深大选课辅助工具"
-APP_VERSION: str = "0.2.0"
+APP_VERSION: str = "0.3.0"
 
 # 启动风险提示弹窗正文，main.py 直接复用，避免文案分散
 RISK_WARNING_TEXT: str = (
@@ -289,12 +289,25 @@ REQUEST_TIMEOUT_SECONDS: float = _as_float(SETTINGS.get("request_timeout_seconds
 # 请求优先级：数值越小越先被调度
 PRIORITY_HIGH: int = 0   # 用户手动触发的 UI 操作（手动刷新课容量、手动收藏等）
 PRIORITY_NORMAL: int = 10  # 自动抢课轮询产生的后台请求
+# 监控任务命中余量时使用：比手动操作还高，插到队列最前面立刻提交
+PRIORITY_MONITOR_HIT: int = -10
 
 # ---------------------------------------------------------------------------
 # 抢课任务轮询
 # ---------------------------------------------------------------------------
 # 单任务轮询间隔下限（毫秒）：小于该值会被自动钳位，等同于全局限流间隔
 MIN_POLL_INTERVAL_MS: int = REQUEST_INTERVAL_MS
+# 任务类型：单志愿抢课 / 多志愿监控
+TASK_KIND_GRAB: str = "grab"
+TASK_KIND_MONITOR: str = "monitor"
+#: 任务类型到界面文案的映射
+TASK_KIND_TEXT: dict[str, str] = {
+    TASK_KIND_GRAB: "单志愿抢课",
+    TASK_KIND_MONITOR: "多志愿监控",
+}
+#: 监控任务最多监控的教学班数量（防止误粘一大段导致请求失控）
+MONITOR_MAX_CLASSES: int = 20
+
 # 新建任务的默认轮询间隔（毫秒）
 DEFAULT_POLL_INTERVAL_MS: int = _as_int(SETTINGS.get("default_poll_interval_ms"), 1500, minimum=MIN_POLL_INTERVAL_MS)
 

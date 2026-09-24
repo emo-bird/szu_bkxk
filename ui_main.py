@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import webbrowser
 from collections import deque
 from typing import Any, Callable, Coroutine
@@ -455,6 +456,16 @@ class TaskDialog(QDialog):
         self.course_number = QLineEdit()
         self.course_total_number = QLineEdit()
         self.teaching_class_id = QLineEdit()
+        self.kind_combo = QComboBox()
+        for kind_code in (config.TASK_KIND_GRAB, config.TASK_KIND_MONITOR):
+            self.kind_combo.addItem(config.TASK_KIND_TEXT.get(kind_code, kind_code), kind_code)
+
+        self.monitor_edit = QPlainTextEdit()
+        self.monitor_edit.setPlaceholderText(
+            "每行一个教学班：教学班ID 或 教学班ID,类别代码"
+        )
+        self.monitor_edit.setFixedHeight(88)
+        self.monitor_edit.setEnabled(False)
         self.teaching_class_id.setPlaceholderText("例如 202620271130068000203（抢课提交的目标）")
 
         self.type_combo = QComboBox()
@@ -470,6 +481,8 @@ class TaskDialog(QDialog):
         self.stop_when_full.setChecked(True)
 
         form = QFormLayout()
+        form.addRow("任务类型", self.kind_combo)
+        form.addRow("监控教学班", self.monitor_edit)
         form.addRow("从课程列表选择", self.course_picker)
         form.addRow("课程名称", self.course_name)
         form.addRow("教师", self.teacher_name)
@@ -485,6 +498,14 @@ class TaskDialog(QDialog):
             f"取消勾选则为「{tm.FULL_CONTINUE_TEXT}」，等待放量。"
         )
         hint.setWordWrap(True)
+        kind_hint = QLabel(
+            "单志愿抢课：只想要这一个志愿、不知道容量何时释放 —— 按上面的教学班ID轮询。\n"
+            "多志愿监控：有多个候选志愿、不知道哪个先释放容量 —— 每行填一个教学班ID，"
+            "每轮只刷新它们所属的类别；命中的第一个用最高优先级插队提交，其余按普通优先级；"
+            "任意一个成功即结束，且不会因满课停止。"
+        )
+        kind_hint.setWordWrap(True)
+        form.addRow(kind_hint)
         form.addRow(hint)
 
         buttons = QDialogButtonBox(
@@ -498,8 +519,51 @@ class TaskDialog(QDialog):
         layout.addWidget(buttons)
 
         self.course_picker.currentIndexChanged.connect(self._on_pick_course)
+        self.kind_combo.currentIndexChanged.connect(self._on_kind_changed)
+        self._on_kind_changed()
         if task is not None:
             self._load(task)
+
+    def _current_kind(self) -> str:
+        """返回当前选择的任务类型代码。
+
+        :return: ``config.TASK_KIND_*`` 之一。
+        """
+        return str(self.kind_combo.currentData() or config.TASK_KIND_GRAB)
+
+    def _parse_monitor_lines(self) -> list[dict[str, str]]:
+        """把多行输入解析为监控目标列表。
+
+        每行格式：``教学班ID`` 或 ``教学班ID,类别代码``；分隔符支持逗号、空格、制表符。
+        未写类别时留空，运行时用课程缓存或任务默认类别补全。
+
+        :return: 去重后的目标列表（保持填写顺序，上限 ``config.MONITOR_MAX_CLASSES``）。
+        """
+        raw: list[dict[str, str]] = []
+        for line in self.monitor_edit.toPlainText().splitlines():
+            parts = [piece for piece in re.split(r"[,\uff0c\s]+", line.strip()) if piece]
+            if not parts:
+                continue
+            raw.append(
+                {
+                    "teachingClassId": parts[0],
+                    "teachingClassType": parts[1] if len(parts) > 1 else "",
+                }
+            )
+        return tm.parse_monitor_targets(raw)
+
+    def _on_kind_changed(self) -> None:
+        """任务类型切换时调整控件可用状态。
+
+        监控任务不因满课停止，因此切换过去时强制取消「满课后停止」并禁用该复选框。
+
+        :return: ``None``
+        """
+        is_monitor = self._current_kind() == config.TASK_KIND_MONITOR
+        self.monitor_edit.setEnabled(is_monitor)
+        if is_monitor:
+            self.stop_when_full.setChecked(False)
+        self.stop_when_full.setEnabled(not is_monitor)
 
     def _on_pick_course(self, index: int) -> None:
         """从课程列表选择后自动填充各输入框。
@@ -547,6 +611,17 @@ class TaskDialog(QDialog):
         self.course_total_number.setText(task.course_total_number)
         self.teaching_class_id.setText(task.teaching_class_id)
         self._select_type(task.teaching_class_type)
+        for position in range(self.kind_combo.count()):
+            if self.kind_combo.itemData(position) == task.kind:
+                self.kind_combo.setCurrentIndex(position)
+                break
+        self.monitor_edit.setPlainText(
+            "\n".join(
+                ",".join(filter(None, [item.get("teachingClassId", ""), item.get("teachingClassType", "")]))
+                for item in task.monitor_targets
+            )
+        )
+        self._on_kind_changed()
         self.interval_spin.setValue(max(task.poll_interval_ms, 1))
         self.stop_when_full.setChecked(task.stop_when_full)
 
@@ -555,7 +630,15 @@ class TaskDialog(QDialog):
 
         :return: ``None``
         """
-        if not self.teaching_class_id.text().strip():
+        if self._current_kind() == config.TASK_KIND_MONITOR:
+            if not self._parse_monitor_lines():
+                QMessageBox.warning(
+                    self,
+                    "参数不完整",
+                    "监控任务至少需要一个教学班 ID（每行一个，可写成「教学班ID,类别代码」）。",
+                )
+                return
+        elif not self.teaching_class_id.text().strip():
             QMessageBox.warning(
                 self,
                 "参数不完整",
@@ -576,6 +659,8 @@ class TaskDialog(QDialog):
         task.course_number = self.course_number.text().strip()
         task.course_total_number = self.course_total_number.text().strip()
         task.teaching_class_id = self.teaching_class_id.text().strip()
+        task.kind = self._current_kind()
+        task.monitor_targets = self._parse_monitor_lines() if task.is_monitor else []
         task.teaching_class_type = str(self.type_combo.currentData() or "FANKC")
         task.poll_interval_ms = self.interval_spin.value()
         task.stop_when_full = self.stop_when_full.isChecked()
