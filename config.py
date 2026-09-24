@@ -1,0 +1,179 @@
+# -*- coding: utf-8 -*-
+"""全局配置模块：集中定义常量、路径与开发开关。
+
+本模块是依赖链最底层模块，不导入项目内其他任何模块，便于后续统一修改阈值。
+
+功能：
+    - 站点地址与各接口路径常量（接口路径来自参考仓库，**待抓包校验**）；
+    - 全局请求队列限流常量（``REQUEST_INTERVAL_MS`` / ``MAX_QUEUE_SIZE``）；
+    - 【重要】开发开关 ``ENABLE_WRITE_API``：控制是否允许真实发起选课/退课写请求；
+    - 课程缓存、任务配置、日志文件的本地路径常量；
+    - 日志来源模块名、日志分类常量。
+
+--------------------------------------------------------------------------
+⚠️ 警告：本程序仅用于技术学习研究。直接高频调用学校选课接口有触发风控、
+账号限制风险；禁止用于大规模恶意抢课；一切使用行为与风险由使用者本人承担；
+开发、求证、测试阶段禁止调用选课、退课接口。
+--------------------------------------------------------------------------
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# 应用信息
+# ---------------------------------------------------------------------------
+APP_NAME: str = "深大选课辅助工具"
+APP_VERSION: str = "0.1.0"
+
+# 启动风险提示弹窗正文，main.py 直接复用，避免文案分散
+RISK_WARNING_TEXT: str = (
+    "警告：本程序仅用于技术学习研究。\n\n"
+    "直接高频调用学校选课接口有触发风控、账号限制风险；\n"
+    "禁止用于大规模恶意抢课；\n"
+    "一切使用行为与风险由使用者本人承担；\n\n"
+    "开发、求证、测试阶段禁止调用选课、退课接口。\n"
+    "选课写接口当前已被总开关禁用（ENABLE_WRITE_API=False），"
+    "仅输出请求报文模板，不会发出真实请求。"
+)
+
+# ---------------------------------------------------------------------------
+# 站点与接口路径
+# ---------------------------------------------------------------------------
+BASE_URL: str = "http://bkxk.szu.edu.cn/"
+SITE_HOME_URL: str = BASE_URL
+CAMPUS: str = "01"
+
+# 课程查询（方案内/方案外/校公选/体育/辅修/慕课）
+EP_PROGRAM_COURSE: str = "xsxkapp/sys/xsxkapp/elective/programCourse.do"
+# 课程查询（本班课程 TJKC）
+EP_RECOMMENDED_COURSE: str = "xsxkapp/sys/xsxkapp/elective/recommendedCourse.do"
+# 已选课程结果查询
+EP_COURSE_RESULT: str = "xsxkapp/sys/xsxkapp/elective/courseResult.do"
+# 选课提交（写接口，默认禁用）
+EP_VOLUNTEER: str = "xsxkapp/sys/xsxkapp/elective/volunteer.do"
+# 选课入口页（备查，本工具不实现登录）
+EP_INDEX: str = "xsxkapp/sys/xsxkapp/*default/index.do"
+
+# teachingClassType 取值与中文名
+TEACHING_CLASS_TYPES: dict[str, str] = {
+    "FANKC": "方案内课程",
+    "FAWKC": "方案外课程",
+    "TJKC": "本班课程",
+    "XGXK": "校公选课",
+    "TYKC": "体育课程",
+    "FXKC": "辅修课程",
+    "MOOC": "慕课",
+}
+
+# 走 recommendedCourse.do 的课程类别，其余类别走 programCourse.do（待抓包校验）
+RECOMMENDED_COURSE_TYPES: frozenset[str] = frozenset({"TJKC"})
+
+# 查询分页大小（待抓包校验）
+QUERY_PAGE_SIZE: int = 100
+
+# ---------------------------------------------------------------------------
+# 全局限流常量【硬性约束，勿随意调小】
+# ---------------------------------------------------------------------------
+# 单条请求最小调度间隔（毫秒）：1 秒内最多 5 条请求
+REQUEST_INTERVAL_MS: int = 201
+# 请求队列最大待处理请求数量上限，超出直接丢弃
+MAX_QUEUE_SIZE: int = 10
+# 单条 http 请求超时时间（秒）
+REQUEST_TIMEOUT_SECONDS: float = 10.0
+
+# 请求优先级：数值越小越先被调度
+PRIORITY_HIGH: int = 0   # 用户手动触发的 UI 操作（手动刷新课容量、手动收藏等）
+PRIORITY_NORMAL: int = 10  # 自动抢课轮询产生的后台请求
+
+# ---------------------------------------------------------------------------
+# 抢课任务轮询
+# ---------------------------------------------------------------------------
+# 单任务轮询间隔下限（毫秒）：小于该值会被自动钳位，等同于全局限流间隔
+MIN_POLL_INTERVAL_MS: int = REQUEST_INTERVAL_MS
+# 新建任务的默认轮询间隔（毫秒）
+DEFAULT_POLL_INTERVAL_MS: int = 1500
+
+# ---------------------------------------------------------------------------
+# 【重要】开发开关
+# ---------------------------------------------------------------------------
+# 【重要】开发求证阶段必须保持False；改为True才会真实发起选课/退课写接口请求
+ENABLE_WRITE_API: bool = False
+
+# ---------------------------------------------------------------------------
+# 本地文件路径
+# ---------------------------------------------------------------------------
+PROJECT_ROOT: Path = Path(__file__).resolve().parent
+# 课程列表缓存（仅接口拉取成功才覆盖）
+COURSE_CACHE_FILE: Path = PROJECT_ROOT / "courses_cache.json"
+# 抢课任务配置
+TASK_CONFIG_FILE: Path = PROJECT_ROOT / "tasks_config.json"
+# 日志目录
+LOG_DIR: Path = PROJECT_ROOT / "logs"
+LOG_FILE_PREFIX: str = "app"
+LOG_FILE_SUFFIX: str = ".log"
+
+# 课程缓存 / 任务配置的 JSON 结构版本号，便于后续兼容旧文件
+COURSE_CACHE_FORMAT_VERSION: int = 1
+TASK_CONFIG_FORMAT_VERSION: int = 1
+
+# 日志时间格式
+LOG_TIME_FORMAT: str = "%Y-%m-%d %H:%M:%S"
+LOG_FILE_DATE_FORMAT: str = "%Y%m%d"
+# UI 日志面板最多保留的日志行数，防止长时间运行内存膨胀
+UI_LOG_MAX_LINES: int = 5000
+
+# ---------------------------------------------------------------------------
+# 日志来源模块与分类
+# ---------------------------------------------------------------------------
+SOURCE_COURSE: str = "课程查询"
+SOURCE_TASK: str = "抢课任务"
+SOURCE_FAVORITE: str = "收藏"
+SOURCE_SYSTEM: str = "系统"
+SOURCE_QUEUE: str = "请求队列"
+
+LOG_SOURCES: tuple[str, ...] = (
+    SOURCE_COURSE,
+    SOURCE_TASK,
+    SOURCE_FAVORITE,
+    SOURCE_SYSTEM,
+    SOURCE_QUEUE,
+)
+
+CATEGORY_SUCCESS: str = "抢课成功"
+CATEGORY_FAILURE: str = "抢课失败"
+CATEGORY_QUERY: str = "查询信息"
+CATEGORY_SYSTEM: str = "系统信息"
+CATEGORY_QUEUE: str = "队列调度"
+
+LOG_CATEGORIES: tuple[str, ...] = (
+    CATEGORY_SUCCESS,
+    CATEGORY_FAILURE,
+    CATEGORY_QUERY,
+    CATEGORY_SYSTEM,
+    CATEGORY_QUEUE,
+)
+
+# 日志等级（仅用于文件与 UI 前缀展示）
+LEVEL_INFO: str = "INFO"
+LEVEL_WARNING: str = "WARN"
+LEVEL_ERROR: str = "ERROR"
+
+# ---------------------------------------------------------------------------
+# HTTP 请求头（不含凭证；凭证由 api_client 按接口需要动态拼装）
+# 参考 szu/setting.py，**待抓包修正**
+# ---------------------------------------------------------------------------
+USER_AGENT: str = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+DEFAULT_HEADERS: dict[str, str] = {
+    "User-Agent": USER_AGENT,
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "Host": "bkxk.szu.edu.cn",
+    "Pragma": "no-cache",
+}
