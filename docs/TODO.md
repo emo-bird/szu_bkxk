@@ -88,14 +88,16 @@
 > 而我们的会话在 WebView2 的独立 profile 里，日常浏览器的 cookie 与之不匹配。
 > 独立 profile 的 Edge 既拿到了会话，又不会污染日常浏览器数据。
 
-### 下一步：按 B+ 落地
+### B+ 已集成进抢课程序 ✅（分支 `feature/webview2-embedded`）
 
-- [ ] 新增 `webview_host.py`：把 spike 里的窗口宿主（pythonnet + Core API + Bounds/DPI 同步）
-      抽成正式模块；
-- [ ] `auth_model`/`ui_main` 改为从 `cdp_bridge` **自动读取凭证**，去掉手工粘贴；
-- [ ] 标签页接入内嵌页（教学班ID 标签 + 抢课按钮 + 卡片高度覆盖）；
-- [ ] 被动捕获的课程数据接入现有课程表格与 `task_model`；
-- [ ] 「添加到抢课任务」→ 任务列表持久化（复用已跑通的 `TaskDialog`）；
+- [x] 新增 `webview_host.py`：窗口宿主（pythonnet + Core API + Bounds/DPI 同步），
+      **只管窗口不碰数据**，失败也不影响取数与抢课；
+- [x] 新增 `webview_bridge.py`：CDP 常驻泵（捕获 + 回传）、页面注入、会话迁移；
+- [x] 凭证改为从内嵌页**自动读取并回填**（cookie 含 HttpOnly；学号/批次从 sessionStorage 解析）；
+- [x] 新增「选课网页」标签页（教学班ID 标签 + 抢课按钮 + 卡片高度覆盖）；
+- [x] 被动捕获的课程自动进入「课程查询」表格；
+- [x] 网页「添加到抢课任务」→ 自动填充 `TaskDialog` → 入列并持久化；
+- [ ] **需要你在真机验证**：`python main.py` → 登录 → 看卡片标签/按钮/表格/建任务/真实浏览器打开；
 - [ ] 抢课轮询与提交仍走 `api_client` + 500ms 限流队列 + `ENABLE_WRITE_API` 守卫。
 
 > 若嵌入路线将来出问题（pythonnet / HWND / DPI），可回退 **A 路线**（外部 Edge + CDP，零依赖）：
