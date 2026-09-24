@@ -290,7 +290,44 @@ icacls C:\Project /restore "$env:TEMP\szu_bkxk_dacl_backup.txt"
 > 都写在 **exe 所在目录**；只读资源（WebView2 SDK）在包内。这一点由 `config.APP_DIR`
 > 与 `config.RESOURCE_DIR` 区分处理，开发运行时两者都等于项目根目录。
 
-## 十四、致谢
+## 十四、打包后如何调整开关（无需重新打包）
+
+`config.py` 打包后会被**编译进 exe**，所以直接改 exe 旁边的 `.py` 文件无效。
+为让**成品**也能调整，程序启动时会读取**与 exe 同级目录**下的可选设置文件 `settings.json`：
+
+```json
+{
+  "enable_write_api": true
+}
+```
+
+| 运行方式 | 设置文件位置 |
+| --- | --- |
+| 打包成品 | `build\szu_bkxk\settings.json`（与 `szu_bkxk.exe` 同级） |
+| 开发运行 | 项目根目录 `settings.json` |
+
+优先级：**环境变量 `SZUBKXK_ENABLE_WRITE_API` > `settings.json` > 源码默认值（False）**。
+
+一行命令创建 / 改写（打包成品）：
+
+```powershell
+# 开启
+'{ "enable_write_api": true }' | Set-Content -Encoding utf8 build\szu_bkxk\settings.json
+# 关闭
+Remove-Item build\szu_bkxk\settings.json
+```
+
+**安全设计**：
+
+- 文件缺失 / JSON 格式错误 / 值无法识别 → **一律回退为 `False`**，绝不会"猜成开启"；
+- 刻意不用 `bool(value)`：否则字符串 `"false"` 会被判为真 —— 这是安全开关上最危险的一类错误（已单测覆盖）；
+- 开启后启动时会 ① 在风险弹窗里追加醒目提示（含开启来源）② 在日志面板写一条告警；
+- 开启即意味着抢课任务会**真实提交选课请求**，可能触发学校风控，风险自负。
+
+> 不想用外部文件的话，也可以直接改 `config.py` 里的默认值（第 144 行附近）后重新运行
+> `build.bat` 重新打包（约 2 分钟）。
+
+## 十五、致谢
 
 本项目离不开以下用户、仓库与工具的帮助：
 

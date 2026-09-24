@@ -115,7 +115,14 @@ def show_risk_dialog() -> bool:
     box = QMessageBox()
     box.setIcon(QMessageBox.Icon.Warning)
     box.setWindowTitle("风险提示（务必阅读）")
-    box.setText(config.RISK_WARNING_TEXT)
+    text = config.RISK_WARNING_TEXT
+    if config.ENABLE_WRITE_API:
+        text += (
+            "\n\n【当前状态：写接口总开关已开启】\n"
+            f"开启来源：{config.WRITE_API_SOURCE}。\n"
+            "确认后抢课任务会真实提交选课请求，可能触发学校风控，请自行承担后果。"
+        )
+    box.setText(text)
     box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
     box.button(QMessageBox.StandardButton.Ok).setText("我已阅读并同意（仅用于学习研究）")
     box.button(QMessageBox.StandardButton.Cancel).setText("退出")
@@ -155,6 +162,14 @@ def main() -> int:
         f"写接口开关 ENABLE_WRITE_API={config.ENABLE_WRITE_API}（False 表示仅构造报文、不发送真实写请求）。",
         config.CATEGORY_SYSTEM,
     )
+
+    if config.ENABLE_WRITE_API:
+        logger.warning(
+            config.SOURCE_SYSTEM,
+            f"写接口总开关已由「{config.WRITE_API_SOURCE}」打开：抢课任务会真实提交选课请求，"
+            f"可能触发学校风控，风险自负。关闭方式：删除/改写 {config.SETTINGS_FILE.name} 或移除该环境变量。",
+            config.CATEGORY_SYSTEM,
+        )
 
     credentials, queue, client = build_components(logger)
 

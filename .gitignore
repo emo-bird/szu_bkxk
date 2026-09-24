@@ -9,6 +9,8 @@ har.json
 courses_cache.json
 tasks_config.json
 logs/
+# 外部设置文件（本地开关，不进版本库）
+settings.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

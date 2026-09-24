@@ -19,6 +19,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import sys
 from pathlib import Path
 
@@ -38,6 +40,66 @@ PROJECT_ROOT: Path = APP_DIR
 # 资源目录：随程序分发、只读（WebView2 SDK 等由 --add-data 打进包里）。
 # 打包后为 PyInstaller 解包目录（sys._MEIPASS），开发时同程序目录。
 RESOURCE_DIR: Path = Path(getattr(sys, "_MEIPASS", str(APP_DIR)))
+
+# ---------------------------------------------------------------------------
+# 外部设置文件（**打包后无需重新打包即可调整开关**）
+# ---------------------------------------------------------------------------
+# 打包后本模块被编译进 exe，改源码必须重新打包；为了让**成品**也能调整开关，
+# 这里支持一个可选的外部设置文件：程序目录（exe 同级）下的 settings.json。
+#
+#   {"enable_write_api": true}
+#
+# 也支持一次性环境变量（优先于文件）：SZUBKXK_ENABLE_WRITE_API=1
+# 文件缺失 / 格式错误 / 值无法识别时**一律退回安全默认值 False**。
+SETTINGS_FILE: Path = APP_DIR / "settings.json"
+
+
+def _read_settings() -> dict:
+    """读取程序目录下的 settings.json。
+
+    :return: 设置字典；文件不存在或无法解析时返回空字典。
+    """
+    try:
+        if not SETTINGS_FILE.exists():
+            return {}
+        data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _as_bool(value: object, default: bool = False) -> bool:
+    """把设置值严格解析为布尔。
+
+    刻意不用 ``bool(value)``：否则字符串 ``"false"`` 会被判为真，
+    这是安全开关上最危险的一类错误。
+
+    :param value: 原始值。
+    :param default: 无法识别时的返回值。
+    :return: 解析结果。
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in {"1", "true", "yes", "y", "on"}:
+            return True
+        if text in {"0", "false", "no", "n", "off"}:
+            return False
+    return default
+
+
+#: 外部设置内容（只读快照）
+SETTINGS: dict = _read_settings()
+
+#: 写接口开关的当前来源说明（用于启动弹窗与日志，便于确认是谁打开的）
+WRITE_API_SOURCE: str = (
+    "环境变量 SZUBKXK_ENABLE_WRITE_API"
+    if os.environ.get("SZUBKXK_ENABLE_WRITE_API") is not None
+    else (f"设置文件 {SETTINGS_FILE.name}" if "enable_write_api" in SETTINGS else "源码默认值（关闭）")
+)
 
 # ---------------------------------------------------------------------------
 # 应用信息
@@ -141,7 +203,11 @@ DEFAULT_POLL_INTERVAL_MS: int = 1500
 # 【重要】开发开关
 # ---------------------------------------------------------------------------
 # 【重要】开发求证阶段必须保持False；改为True才会真实发起选课/退课写接口请求
-ENABLE_WRITE_API: bool = False
+# 优先级：环境变量 > settings.json > 源码默认值（False）
+ENABLE_WRITE_API: bool = _as_bool(
+    os.environ.get("SZUBKXK_ENABLE_WRITE_API"),
+    _as_bool(SETTINGS.get("enable_write_api"), False),
+)
 
 # ---------------------------------------------------------------------------
 # 内嵌选课网页（WebView2 + CDP）
