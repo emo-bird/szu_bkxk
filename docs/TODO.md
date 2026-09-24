@@ -52,21 +52,54 @@
 3. 抓到的响应体被我按 6000 字符截断后再解析，导致真实 JSON 被误报为「非 JSON」——
    新实现先解析完整内容、只在展示时截断。
 
-### 下一步（唯一未验证项：能不能真嵌进 Qt 窗口）
+### spike 全部通过 ✅（7/7，已跑通多轮）
 
-- [ ] **请你运行 B+ 嵌入 spike**（窗口在我沙箱里出不来，必须你跑）：
+[`管理员 Windows PowerShell6.txt`](管理员%20Windows%20PowerShell6.txt) 实测结果：
 
-      ```powershell
-      cd C:\Project\szu_bkxk
-      .\.venv\Scripts\python.exe tools\spike_webview2_embed.py
-      ```
+| 能力 | 结果 |
+| --- | --- |
+| WebView2 内嵌到 Qt 窗口 | [OK]（DPR=2.0 高 DPI 下 Bounds 同步正常） |
+| CDP 端口可达 / 执行 JS | [OK] |
+| 登录后读取 cookie | [OK] `_WEU/JSESSIONID/route/insert_cookie` 共 178 字符（含 HttpOnly） |
+| 卡片显示教学班ID + 抢课按钮 | [OK] `cards:13, tags:13, buttons:13, cardHeight:252px` |
+| 被动捕获接口响应 | [OK] 17 个接口 / 26 条，**零额外请求** |
+| **网页按钮 → Python 弹窗** | [OK] 自动填充课程/教师/课程号/教学班ID，**类别精确**（方案内 / 本班） |
 
-      它会验证 6 项：WebView2 内嵌、CDP 端口、执行 JS、登录后读 cookie、
-      **课程卡片上显示教学班ID**、被动捕获接口响应。请把输出贴给我。
-- [ ] 若嵌入通过 → 按 B+ 落地：新增 `webview_host.py`（窗口宿主）、
-      凭证改为从 `cdp_bridge` 自动读取、标签页接入内嵌页、卡片注入教学班ID。
-- [ ] 若嵌入失败（pythonnet/HWND/DPI 问题）→ 回退 A 路线（外部 Edge + CDP，零依赖），
-      `tools/spike_edge_login.py` 已改用同一套 `cdp_bridge`，可直接复测。
+### 本轮修复的三个问题
+
+1. **回传延迟**：原先回传读取排在「被动捕获 15 秒」之后，点击最多压 15 秒。
+   改为**常驻消息泵**（100ms 轮询 + Qt 侧 80ms 消费）后，实测**端到端额外延迟 117ms**。
+2. **卡片高度**：站点 `.cv-course-card` 是固定 `210px` 且无溢出处理，追加标签后内容溢出。
+   注入 `height:252px !important` 覆盖（用固定值，避免「确认选择」模式切换时高度跳变）。
+3. **课程号被污染**：`.cv-num` 内含 `<span class="cv-detail">课程详情</span>`，
+   直接取 `textContent` 会得到 `5201890010 课程详情`。改为克隆节点后剔除 `.cv-detail` 再取文本。
+   同类问题（`tcList` 里的 `null` 覆盖课程级有效值）在 `course_model` 解析器里也已修复。
+
+### 新增能力：在真实浏览器打开（用本次会话）
+
+界面新增按钮「在真实浏览器打开（用本次会话）」：
+
+- 启动一个**独立 profile** 的 Edge（开 CDP 端口）；
+- 用 `Network.setCookie` 把本会话的 cookie 写入该浏览器；
+- 再以 `grablessons.do?token=<token>` 导航；
+- 并校验页面是否真的渲染出课程卡片，把结论打印到控制台。
+
+> 之所以不能直接丢给系统默认浏览器：站点要求 cookie 与 token 属于**同一会话**，
+> 而我们的会话在 WebView2 的独立 profile 里，日常浏览器的 cookie 与之不匹配。
+> 独立 profile 的 Edge 既拿到了会话，又不会污染日常浏览器数据。
+
+### 下一步：按 B+ 落地
+
+- [ ] 新增 `webview_host.py`：把 spike 里的窗口宿主（pythonnet + Core API + Bounds/DPI 同步）
+      抽成正式模块；
+- [ ] `auth_model`/`ui_main` 改为从 `cdp_bridge` **自动读取凭证**，去掉手工粘贴；
+- [ ] 标签页接入内嵌页（教学班ID 标签 + 抢课按钮 + 卡片高度覆盖）；
+- [ ] 被动捕获的课程数据接入现有课程表格与 `task_model`；
+- [ ] 「添加到抢课任务」→ 任务列表持久化（复用已跑通的 `TaskDialog`）；
+- [ ] 抢课轮询与提交仍走 `api_client` + 500ms 限流队列 + `ENABLE_WRITE_API` 守卫。
+
+> 若嵌入路线将来出问题（pythonnet / HWND / DPI），可回退 **A 路线**（外部 Edge + CDP，零依赖）：
+> `tools/spike_edge_login.py` 已改用同一套 `cdp_bridge`，可直接复测。
 
 ## P0-2｜已用有效凭证完成端到端验收 ✅
 
