@@ -320,18 +320,20 @@ async def run_spike(headful: bool, login_wait: float, close_after: bool) -> int:
                     if ".do" not in url:
                         continue
                     key = url.split("/")[-1].split("?")[0]
-                    count, _ = captured.get(key, (0, ""))
-                    captured[key] = (count + 1, captured.get(key, (0, ""))[1])
-                    if count == 0:
-                        try:
-                            got = await cdp.call(
-                                "Network.getResponseBody",
-                                {"requestId": event["params"]["requestId"]},
-                                timeout=8,
-                            )
-                            captured[key] = (1, got.get("result", {}).get("body", "")[:6000])
-                        except Exception as exc:  # noqa: BLE001
-                            captured[key] = (1, f"<取响应体失败：{type(exc).__name__}>")
+                    seen_count, seen_body = captured.get(key, (0, ""))
+                    if seen_count:
+                        captured[key] = (seen_count + 1, seen_body)
+                        continue
+                    # 首次见到该接口时抓一次响应体：响应体稍后会被浏览器回收，必须当场取
+                    try:
+                        got = await cdp.call(
+                            "Network.getResponseBody",
+                            {"requestId": event["params"]["requestId"]},
+                            timeout=8,
+                        )
+                        captured[key] = (1, got.get("result", {}).get("body", "")[:6000])
+                    except Exception as exc:  # noqa: BLE001
+                        captured[key] = (1, f"<取响应体失败：{type(exc).__name__}>")
                 await asyncio.sleep(0.3)
 
             print()
