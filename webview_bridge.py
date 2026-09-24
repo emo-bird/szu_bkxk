@@ -236,6 +236,7 @@ class WebViewBridge:
         on_courses: Callable[[list[cm.Course]], None] | None = None,
         on_add_task: Callable[[dict], None] | None = None,
         on_status: Callable[[str], None] | None = None,
+        on_busy: Callable[[bool], None] | None = None,
     ) -> None:
         """初始化桥接。
 
@@ -245,12 +246,16 @@ class WebViewBridge:
         :param on_courses: 课程列表变化回调（同样是跨线程调用）。
         :param on_add_task: 网页「添加到抢课任务」回调。
         :param on_status: 状态文案回调（用于界面提示）。
+        :param on_busy: 耗时操作开始/结束回调（``True`` 开始、``False`` 结束），
+            界面据此禁用按钮，避免并发重复触发。
         """
         self._logger = logger
         self._on_session = on_session
         self._on_courses = on_courses
         self._on_add_task = on_add_task
         self._on_status = on_status
+        self._on_busy = on_busy
+        self._migrating = False
         self.known: dict[str, dict] = {}
         self.courses: dict[str, cm.Course] = {}
         self.token = ""
@@ -409,6 +414,38 @@ class WebViewBridge:
     # -- 会话迁移：在真实浏览器打开 -----------------------------------------
     async def open_in_real_browser(self) -> None:
         """把本次会话迁移到独立 profile 的真实 Edge 窗口并打开选课页。
+
+        本操作会发起**真实页面导航**（不受 API 限流队列约束），因此加防重入：
+        上一次未结束时再次点击会被忽略，并通过 `_on_busy` 通知界面禁用按钮。
+
+        :return: ``None``
+        """
+        if self._migrating:
+            self._status("上一次「在真实浏览器打开」仍在进行，本次点击已忽略")
+            return
+        self._migrating = True
+        self._notify_busy(True)
+        try:
+            await self._migrate_session()
+        finally:
+            self._migrating = False
+            self._notify_busy(False)
+
+    def _notify_busy(self, busy: bool) -> None:
+        """通知界面当前耗时操作的忙碌状态。
+
+        :param busy: ``True`` 表示开始、``False`` 表示结束。
+        :return: ``None``
+        """
+        if self._on_busy is None:
+            return
+        try:
+            self._on_busy(busy)
+        except Exception:  # noqa: BLE001 - 回调失败不影响主流程
+            pass
+
+    async def _migrate_session(self) -> None:
+        """实际执行会话迁移（由 :meth:`open_in_real_browser` 加锁后调用）。
 
         .. note::
            只带 token（URL 传参）是不够的：选课页会

@@ -30,7 +30,7 @@ import webbrowser
 from typing import Any, Callable, Coroutine
 from urllib.parse import quote
 
-from PyQt6.QtCore import Qt, pyqtSignal, QObject
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from PyQt6.QtGui import QAction, QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -97,6 +97,8 @@ class UiBridge(QObject):
     addTaskRequested = pyqtSignal(dict)
     #: 内嵌网页数据面状态文案
     webStatus = pyqtSignal(str)
+    #: 内嵌网页耗时操作（如迁移到真实浏览器）的忙碌状态
+    webBusy = pyqtSignal(bool)
 
 
 class CredentialPanel(QGroupBox):
@@ -959,6 +961,10 @@ class WebPagePanel(QWidget):
         super().__init__(parent)
         self._logger = logger
         self._token_provider = token_provider
+        self._ready = False
+        self._busy = False
+        #: 重新载入的冷却状态：冷却期内无论从哪条路径调用都直接忽略
+        self._reload_ready = True
         self.host = None
 
         self.status_label = QLabel("内嵌网页尚未启动")
@@ -1026,8 +1032,14 @@ class WebPagePanel(QWidget):
 
         :return: ``None``
         """
-        if self.host is not None:
-            self.host.navigate(self.target_url())
+        if self.host is None or self._busy or not self._reload_ready:
+            return
+        self._reload_ready = False
+        self.host.navigate(self.target_url())
+        # 页面导航不走 API 限流队列，这里加短冷却，避免误连点造成密集页面加载。
+        # 守卫放在方法内（而非只禁用按钮），这样无论从哪条路径触发都会被拦住。
+        self.reload_button.setEnabled(False)
+        QTimer.singleShot(config.WEBVIEW_RELOAD_COOLDOWN_MS, self._end_reload_cooldown)
 
     def disable(self, reason: str) -> None:
         """停用内嵌网页（环境不支持或用户关闭了开关）。
@@ -1044,6 +1056,8 @@ class WebPagePanel(QWidget):
         :return: ``None``
         """
         self.status_label.setText("内嵌网页已就绪：请登录，然后点击卡片上的「+ 添加到抢课任务」")
+        self._ready = True
+        self._reload_ready = True
         self.reload_button.setEnabled(True)
         self.real_browser_button.setEnabled(True)
         self.host.navigate(self.target_url())
@@ -1065,6 +1079,26 @@ class WebPagePanel(QWidget):
         """
         if self.host is not None:
             self.host.sync_bounds()
+
+    def _end_reload_cooldown(self) -> None:
+        """结束重新载入的冷却，恢复按钮可用状态。
+
+        :return: ``None``
+        """
+        self._reload_ready = True
+        self.reload_button.setEnabled(self._ready)
+
+    def set_busy(self, busy: bool) -> None:
+        """在耗时操作（迁移到真实浏览器）期间禁用按钮。
+
+        该操作会发起真实页面导航，不受 API 限流队列约束，
+        禁用按钮可避免并发多次打开。
+
+        :param busy: ``True`` 表示开始、``False`` 表示结束。
+        :return: ``None``
+        """
+        self._busy = busy
+        self.real_browser_button.setEnabled(self._ready and not busy)
 
     def set_status(self, message: str) -> None:
         """更新状态栏文案。
@@ -1127,6 +1161,7 @@ class MainWindow(QMainWindow):
             on_courses=lambda courses: self.bridge.coursesCaptured.emit(courses),
             on_add_task=lambda payload: self.bridge.addTaskRequested.emit(payload),
             on_status=lambda message: self.bridge.webStatus.emit(message),
+            on_busy=lambda busy: self.bridge.webBusy.emit(busy),
         )
 
         course_tab = QWidget()
@@ -1162,6 +1197,7 @@ class MainWindow(QMainWindow):
         self.bridge.coursesCaptured.connect(self.on_courses_captured)
         self.bridge.addTaskRequested.connect(self.on_add_task_from_web)
         self.bridge.webStatus.connect(self.web_panel.set_status)
+        self.bridge.webBusy.connect(self.web_panel.set_busy)
         self.web_panel.realBrowserRequested.connect(self.on_open_real_browser)
         self.web_panel.ready.connect(self._on_webview_ready)
         self.task_panel.startTaskRequested.connect(self.on_start_task)

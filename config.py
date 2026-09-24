@@ -149,6 +149,9 @@ WEBVIEW_CARD_HEIGHT_PX: int = 252
 # 选课子页面（内嵌页与「真实浏览器」都打开它）
 WEBVIEW_PAGE_URL: str = BASE_URL + EP_GRABLESSONS_PAGE
 # 「在真实浏览器打开」用的独立 Edge 端口与 profile（同样不入库）
+# 「重新载入选课页」按钮的冷却时间（毫秒）。
+# 页面导航不受 API 限流队列约束，加冷却避免误连点导致密集页面加载。
+WEBVIEW_RELOAD_COOLDOWN_MS: int = 1500
 REAL_BROWSER_DEBUG_PORT: int = 9350
 REAL_BROWSER_PROFILE_DIR: Path = PROJECT_ROOT / ".edge_real_profile"
 
