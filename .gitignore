@@ -1,6 +1,12 @@
 # 参考仓库
 szu/
 
+# 运行期产物（本地缓存 / 任务配置 / 日志）
+# 凭证不落盘，以下文件同样不应提交：可能包含个人选课偏好
+courses_cache.json
+tasks_config.json
+logs/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
