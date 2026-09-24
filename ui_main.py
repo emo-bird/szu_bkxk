@@ -1118,6 +1118,9 @@ class MainWindow(QMainWindow):
         self.task_panel = TaskPanel(logger, course_provider=self._course_candidates)
         self.log_panel = LogPanel(logger)
         self._webview_started = False
+        #: 上一次已生效的会话快照（学号/批次/cookie/token）。
+        #: 数据面每秒刷新一次会话，靠它做去重：内容没变就既不必重填界面，也不必反复写日志。
+        self._session_fingerprint: tuple[str, str, str, str] | None = None
         self._bridge = wv_bridge.WebViewBridge(
             logger,
             on_session=lambda token, cookies, storage: self.bridge.sessionRead.emit(token, cookies, storage),
@@ -1365,6 +1368,9 @@ class MainWindow(QMainWindow):
         ``studentCode`` 与 ``electiveBatchCode`` 从 ``sessionStorage`` 里的
         ``studentInfo`` / ``currentBatch`` 解析；cookie 拼成请求头形式。
 
+        数据面每秒刷新一次会话，本方法按快照**去重**：内容未变化则静默跳过，
+        只在登录成功、token 更换、被踢下线等真实变化时更新界面并记录一条日志。
+
         :param token: 会话令牌。
         :param cookies: cookie 字典列表。
         :param storage: ``sessionStorage`` 全量键值。
@@ -1400,12 +1406,35 @@ class MainWindow(QMainWindow):
             except (json.JSONDecodeError, TypeError):
                 pass
 
-        self.credential_panel.apply_credentials(credentials)
-        self._logger.info(
-            config.SOURCE_SYSTEM,
-            f"已从内嵌网页读取会话并填充凭证：{credentials.masked()}",
-            config.CATEGORY_SYSTEM,
+        fingerprint = (
+            credentials.student_code,
+            credentials.elective_batch_code,
+            credentials.cookie,
+            credentials.token,
         )
+        previous = self._session_fingerprint
+        if previous == fingerprint:
+            # 会话快照与上次完全一致（数据面每秒刷新一次）：静默跳过，
+            # 避免每秒重复回填界面并刷出一条日志。
+            return
+        self._session_fingerprint = fingerprint
+        self.credential_panel.apply_credentials(credentials)
+        if previous is None:
+            self._logger.info(
+                config.SOURCE_SYSTEM,
+                f"已从内嵌网页读取会话并填充凭证：{credentials.masked()}",
+                config.CATEGORY_SYSTEM,
+            )
+        else:
+            names = ("学号", "批次", "cookie", "token")
+            changed = "、".join(
+                names[index] for index in range(len(names)) if previous[index] != fingerprint[index]
+            )
+            self._logger.info(
+                config.SOURCE_SYSTEM,
+                f"内嵌网页会话已更新（{changed}）并重新填充凭证：{credentials.masked()}",
+                config.CATEGORY_SYSTEM,
+            )
 
     def on_courses_captured(self, courses: list) -> None:
         """把内嵌网页被动捕获到的课程显示到课程表格。
