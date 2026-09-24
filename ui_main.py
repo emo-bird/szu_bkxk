@@ -813,6 +813,78 @@ class TaskPanel(QWidget):
             return []
 
 
+class LogPanel(QWidget):
+    """标签页3：日志面板。
+
+    显示 ``[时间戳] [来源模块] 日志内容`` 格式的日志，并提供按分类的过滤复选框。
+    过滤器只影响界面展示，日志文件始终记录全部分类。
+    """
+
+    def __init__(self, logger: Logger, parent: QWidget | None = None) -> None:
+        """构建日志面板。
+
+        :param logger: 日志器，复选框直接读写其过滤器。
+        :param parent: 父控件。
+        """
+        super().__init__(parent)
+        self._logger = logger
+        self._category_boxes: dict[str, QCheckBox] = {}
+
+        self.view = QPlainTextEdit()
+        self.view.setReadOnly(True)
+        self.view.setMaximumBlockCount(config.UI_LOG_MAX_LINES)
+        self.view.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        font = self.view.font()
+        font.setFamily("Consolas")
+        self.view.setFont(font)
+
+        self.clear_button = QPushButton("清空面板")
+
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(QLabel("日志过滤："))
+        for category in config.LOG_CATEGORIES:
+            box = QCheckBox(category)
+            box.setChecked(logger.filter.is_category_enabled(category))
+            box.toggled.connect(lambda checked, name=category: self._on_toggle(name, checked))
+            self._category_boxes[category] = box
+            filter_row.addWidget(box)
+        filter_row.addStretch(1)
+        filter_row.addWidget(self.clear_button)
+
+        self.path_label = QLabel(f"日志文件：{logger.log_file_path}")
+
+        layout = QVBoxLayout(self)
+        layout.addLayout(filter_row)
+        layout.addWidget(self.view, 1)
+        layout.addWidget(self.path_label)
+
+        self.clear_button.clicked.connect(self.view.clear)
+
+    def _on_toggle(self, category: str, checked: bool) -> None:
+        """切换某个日志分类的界面展示开关。
+
+        :param category: 日志分类名。
+        :param checked: 是否展示。
+        :return: ``None``
+        """
+        self._logger.filter.set_category_enabled(category, checked)
+
+    def append_record(self, record: LogRecord) -> None:
+        """把一条日志追加到面板（由 Qt 信号在主线程调用）。
+
+        :param record: 日志记录。
+        :return: ``None``
+        """
+        self.view.appendPlainText(record.formatted())
+
+    def category_filter_state(self) -> dict[str, bool]:
+        """返回各分类复选框的当前勾选状态，便于自检与调试。
+
+        :return: 分类名到勾选状态的映射。
+        """
+        return {name: box.isChecked() for name, box in self._category_boxes.items()}
+
+
 class MainWindow(QMainWindow):
     """程序主窗口：组织三个标签页，并负责把界面动作投递到异步事件循环。
 
@@ -853,7 +925,7 @@ class MainWindow(QMainWindow):
         self.credential_panel = CredentialPanel(credentials, logger)
         self.course_panel = CourseQueryPanel(logger)
         self.task_panel = TaskPanel(logger, course_provider=self._course_candidates)
-        self.log_panel = self._build_placeholder_tab("日志面板（后续阶段实现）")
+        self.log_panel = LogPanel(logger)
 
         course_tab = QWidget()
         course_layout = QVBoxLayout(course_tab)
@@ -869,20 +941,6 @@ class MainWindow(QMainWindow):
         self.load_cached_courses()
         self.load_persisted_tasks()
 
-    @staticmethod
-    def _build_placeholder_tab(text: str) -> QWidget:
-        """创建一个占位标签页。
-
-        :param text: 占位说明文字。
-        :return: 占位 QWidget。
-        """
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        label = QLabel(text)
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label)
-        return widget
-
     def _connect(self) -> None:
         """连接界面信号与后台任务。"""
         self.course_panel.refreshRequested.connect(self.on_refresh_courses)
@@ -890,6 +948,7 @@ class MainWindow(QMainWindow):
         self.bridge.coursesLoaded.connect(self.course_panel.set_courses)
         self.bridge.coursesFailed.connect(self._on_courses_failed)
         self.bridge.taskUpdated.connect(self.task_panel.update_task)
+        self.bridge.logRecord.connect(self.log_panel.append_record)
         self.task_panel.startTaskRequested.connect(self.on_start_task)
         self.task_panel.stopTaskRequested.connect(self.on_stop_task)
         self.task_panel.tasksChanged.connect(self.persist_tasks)
@@ -939,8 +998,19 @@ class MainWindow(QMainWindow):
         """
         if not categories:
             return
+        if not self._is_async_ready():
+            self._logger.warning(config.SOURCE_SYSTEM, "异步运行时尚未启动，已忽略本次刷新请求。", config.CATEGORY_SYSTEM)
+            self.course_panel.set_busy(False, "异步运行时尚未启动，刷新被忽略")
+            return
         self.course_panel.set_busy(True, "正在查询课程列表…")
         self._run_async(self._fetch_courses(categories))
+
+    def _is_async_ready(self) -> bool:
+        """判断后台异步运行时是否可用。
+
+        :return: 事件循环已启动且未关闭时返回 ``True``。
+        """
+        return self._loop is not None and not self._loop.is_closed()
 
     async def _fetch_courses(self, categories: list[str]) -> None:
         """依次拉取各课程类别的课程列表并汇总更新界面。
@@ -992,6 +1062,7 @@ class MainWindow(QMainWindow):
         note = f"已刷新 {len(collected)} 条课程（类别：{'、'.join(succeeded)}）"
         if failures:
             note += f"；部分类别失败：{'；'.join(failures)}"
+        self.course_panel.set_busy(False, note)
         self.bridge.coursesLoaded.emit(collected, note)
 
     def _on_courses_failed(self, message: str) -> None:
@@ -1056,6 +1127,11 @@ class MainWindow(QMainWindow):
         """
         self.bridge.taskUpdated.emit(task)
 
+    @property
+    def task_runner(self) -> tm.GrabTaskRunner:
+        """返回本窗口使用的抢课任务执行器，供入口程序在退出时统一停止任务。"""
+        return self._runner
+
     def closeEvent(self, event: Any) -> None:  # noqa: N802 - Qt 约定的驼峰命名
         """窗口关闭时保存任务配置并停止全部后台任务。
 
@@ -1071,11 +1147,3 @@ class MainWindow(QMainWindow):
                 self._logger.warning(config.SOURCE_SYSTEM, f"停止后台任务时出现异常：{exc}", config.CATEGORY_SYSTEM)
         self._logger.info(config.SOURCE_SYSTEM, "程序正在退出，任务配置已保存。", config.CATEGORY_SYSTEM)
         event.accept()
-
-    def on_log_record(self, record: LogRecord) -> None:
-        """接收后台线程投递的日志记录（当前阶段仅占位，日志面板在后续阶段实现）。
-
-        :param record: 日志记录。
-        :return: ``None``
-        """
-        _ = record
