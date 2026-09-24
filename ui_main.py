@@ -1031,6 +1031,7 @@ class MainWindow(QMainWindow):
         collected: list[cm.Course] = []
         succeeded: list[str] = []
         failures: list[str] = []
+        empty_notes: list[str] = []
 
         for category in categories:
             label = config.TEACHING_CLASS_TYPES.get(category, category)
@@ -1057,6 +1058,12 @@ class MainWindow(QMainWindow):
 
                 page_courses = cm.parse_courses(response, category)
                 if not page_courses:
+                    # 该类别没有可取课程时，把服务器给的业务说明（如「没有辅修课程」）透出来，
+                    # 避免界面只显示一句模糊的「未返回任何课程数据」
+                    message = str(response.get("msg") or "").strip()
+                    if message and offset == 0:
+                        empty_notes.append(f"{label}：{message}")
+                        self._logger.info(config.SOURCE_COURSE, f"{label} 无可选课程：{message}", config.CATEGORY_QUERY)
                     break
                 collected.extend(page_courses)
                 got_any = True
@@ -1066,13 +1073,15 @@ class MainWindow(QMainWindow):
                 succeeded.append(label)
 
         if not collected:
-            detail = "；".join(failures) if failures else "接口未返回任何课程数据"
+            detail = "；".join(failures + empty_notes) if (failures or empty_notes) else "接口未返回任何课程数据"
             self.bridge.coursesFailed.emit(detail)
             return
 
         # 只有拉取成功才覆盖本地缓存（需求 §七.7）
         cm.save_courses(collected, logger=self._logger)
         note = f"已刷新 {len(collected)} 条课程（类别：{'、'.join(succeeded)}）"
+        if empty_notes:
+            note += f"；以下类别无可选课程：{'；'.join(empty_notes)}"
         if failures:
             note += f"；部分类别失败：{'；'.join(failures)}"
         self.course_panel.set_busy(False, note)

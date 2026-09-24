@@ -325,10 +325,10 @@ def parse_courses(
         merged: dict[str, Any] = dict(course)
         merged.update(tc_info)
 
-        teaching_class_id = _pick(tc_info, _CLASS_ID_CANDIDATES)
-        capacity = _to_int(_pick(tc_info, _CAPACITY_CANDIDATES, "0"))
-        selected = _to_int(_pick(tc_info, _SELECTED_CANDIDATES, "0"))
-        full_raw = _pick(tc_info, _FULL_CANDIDATES, "")
+        teaching_class_id = _pick(merged, _CLASS_ID_CANDIDATES)
+        capacity = _to_int(_pick(merged, _CAPACITY_CANDIDATES, "0"))
+        selected = _to_int(_pick(merged, _SELECTED_CANDIDATES, "0"))
+        full_raw = _pick(merged, _FULL_CANDIDATES, "")
         is_full = _to_flag(full_raw) if full_raw != "" else (capacity > 0 and selected >= capacity)
 
         courses.append(
@@ -370,21 +370,23 @@ def extract_capacity(
     """
     target = str(teaching_class_id).strip()
     for course, tc_info in iter_teaching_classes(api_response):
-        current_id = _pick(tc_info, _CLASS_ID_CANDIDATES)
+        merged: dict[str, Any] = dict(course)
+        merged.update(tc_info)
+        current_id = _pick(merged, _CLASS_ID_CANDIDATES)
         if current_id != target:
             continue
-        capacity = _to_int(_pick(tc_info, _CAPACITY_CANDIDATES, "0"))
-        selected = _to_int(_pick(tc_info, _SELECTED_CANDIDATES, "0"))
-        full_raw = _pick(tc_info, _FULL_CANDIDATES, "")
+        capacity = _to_int(_pick(merged, _CAPACITY_CANDIDATES, "0"))
+        selected = _to_int(_pick(merged, _SELECTED_CANDIDATES, "0"))
+        full_raw = _pick(merged, _FULL_CANDIDATES, "")
         return CapacityInfo(
             teaching_class_id=current_id,
-            course_name=_pick(course, ("courseName", "name")),
-            teacher_name=_pick(tc_info, _TEACHER_CANDIDATES),
+            course_name=_pick(merged, ("courseName", "name")),
+            teacher_name=_pick(merged, _TEACHER_CANDIDATES),
             selected_count=selected,
             class_capacity=capacity,
             is_full=_to_flag(full_raw) if full_raw != "" else (capacity > 0 and selected >= capacity),
-            is_conflict=_to_flag(_pick(tc_info, _CONFLICT_CANDIDATES, "0")),
-            is_chosen=_to_flag(_pick(tc_info, _CHOSEN_CANDIDATES, "0")),
+            is_conflict=_to_flag(_pick(merged, _CONFLICT_CANDIDATES, "0")),
+            is_chosen=_to_flag(_pick(merged, _CHOSEN_CANDIDATES, "0")),
         )
     return None
 
