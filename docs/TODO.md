@@ -96,6 +96,10 @@
 - [x] 凭证改为从内嵌页**自动读取并回填**（cookie 含 HttpOnly；学号/批次从 sessionStorage 解析）；
 - [x] 新增「选课网页」标签页（教学班ID 标签 + 抢课按钮 + 卡片高度覆盖）；
 - [x] 被动捕获的课程自动进入「课程查询」表格；
+- [x] **写接口按 `docs/har.json` 实测实现**：抢课 `volunteer.do`（`addParam`）、
+      退课 `deleteVolunteer.do`（`deleteParam`）、查余量 `teachingclass/capacity.do`；
+      响应按 `code` 分类（1 成功 / 2 业务拒绝 / 302 登录失效 / 其它**未识别**）；
+- [x] **未识别返回全量落日志**（标记 `[未识别返回]`，含请求体+响应原文），便于后续开发补分支；
 - [x] 网页「添加到抢课任务」→ 自动填充 `TaskDialog` → 入列并持久化；
 - [ ] **需要你在真机验证**：`python main.py` → 登录 → 看卡片标签/按钮/表格/建任务/真实浏览器打开；
 - [ ] 抢课轮询与提交仍走 `api_client` + 500ms 限流队列 + `ENABLE_WRITE_API` 守卫。

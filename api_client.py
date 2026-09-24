@@ -180,10 +180,158 @@ def build_enroll_param(
             "isMajor": "1",
             "campus": config.CAMPUS,
             "teachingClassType": teaching_class_type,
-            "chooseVolunteer": "1",
         }
     }
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def build_delete_param(credentials: Credentials, teaching_class_id: str) -> str:
+    """构造**退课**写接口的 ``deleteParam`` 表单字段值。
+
+    .. warning::
+       本函数**只构造报文**。字段与取值按 ``docs/har.json`` 实测（2026-09-24）对齐：
+       ``operationType="2"``；注意与抢课不同，退课**不带** ``campus`` 与
+       ``teachingClassType``，且 ``chooseVolunteer`` 不存在。
+
+    :param credentials: 已归一化的凭证。
+    :param teaching_class_id: 教学班 ID。
+    :return: JSON 字符串。
+    """
+    payload = {
+        "data": {
+            "operationType": "2",
+            "studentCode": credentials.student_code,
+            "electiveBatchCode": credentials.elective_batch_code,
+            "teachingClassId": teaching_class_id,
+            "isMajor": "1",
+        }
+    }
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+
+def build_capacity_form(teaching_class_id: str, batch_code: str) -> dict[str, str]:
+    """构造课容量查询（**只读**）的表单。
+
+    :param teaching_class_id: 教学班 ID。
+    :param batch_code: 选课批次号。
+    :return: 表单字段字典。
+    """
+    return {"teachingClassId": teaching_class_id, "batchCode": batch_code}
+
+
+#: 响应分类结果：成功
+RESPONSE_OK = "ok"
+#: 响应分类结果：服务器业务拒绝（code=2，msg 即原因）
+RESPONSE_BUSINESS_ERROR = "business"
+#: 响应分类结果：登录态失效
+RESPONSE_UNAUTHENTICATED = "unauthenticated"
+#: 响应分类结果：未识别（需全量落档供后续开发）
+RESPONSE_UNKNOWN = "unknown"
+
+
+def classify_response(data: dict[str, Any]) -> tuple[str, str, str]:
+    """按服务器返回的 ``code``/``msg`` 判定响应类别。
+
+    判别依据来自 ``docs/har.json`` 实测：
+    ``code="1"`` 成功、``code="2"`` 业务拒绝（msg 为原因）、``code="302"`` 登录失效；
+    其余一律视为**未识别**，交由 :func:`dump_unknown_response` 全量落档。
+
+    :param data: 已解析的响应字典。
+    :return: ``(类别, code, msg)``。
+    """
+    code = str(data.get("code", "")).strip()
+    message = str(data.get("msg") or data.get("message") or "").strip()
+    if code == config.RESP_CODE_SUCCESS:
+        return RESPONSE_OK, code, message
+    if code == config.RESP_CODE_BUSINESS_ERROR:
+        return RESPONSE_BUSINESS_ERROR, code, message
+    if code == config.RESP_CODE_UNAUTHENTICATED or "登录" in message or "认证" in message:
+        return RESPONSE_UNAUTHENTICATED, code, message
+    return RESPONSE_UNKNOWN, code, message
+
+
+def classify_response_text(text: str) -> tuple[str, str, str]:
+    """把原始响应文本分类（非 JSON、HTML 都能给出结论）。
+
+    :param text: 原始响应文本。
+    :return: ``(类别, code, msg)``。
+    """
+    stripped = text.lstrip()
+    if stripped.startswith("<") or "<!DOCTYPE" in text[:200]:
+        return RESPONSE_UNAUTHENTICATED, "", "响应是网页而不是接口数据"
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return RESPONSE_UNKNOWN, "", ""
+    if not isinstance(data, dict):
+        return RESPONSE_UNKNOWN, "", ""
+    return classify_response(data)
+
+
+def dump_unknown_response(
+    logger: Logger,
+    action: str,
+    url: str,
+    form_data: dict[str, str],
+    text: str,
+) -> None:
+    """把**未识别**的响应全量写入日志，供后续开发补齐分支。
+
+    真实使用中总会遇到未枚举过的返回（新的拒绝原因、风控页、结构变更等），
+    这里把「请求体 + 完整响应原文」原样留档，之后照着日志补分支即可。
+
+    :param logger: 日志器。
+    :param action: 动作描述。
+    :param url: 请求地址。
+    :param form_data: 表单字段（不含凭证头）。
+    :param text: 原始响应文本。
+    :return: ``None``
+    """
+    body = text[: config.UNKNOWN_RESPONSE_DUMP_LIMIT]
+    suffix = f"（超出 {config.UNKNOWN_RESPONSE_DUMP_LIMIT} 字节部分已截断）" if len(text) > len(body) else ""
+    logger.warning(
+        config.SOURCE_TASK,
+        "[未识别返回] 该情况尚未处理，已全量留档供后续开发\n"
+        f"动作：{action}\n"
+        f"地址：{url}\n"
+        f"请求体：{json.dumps(form_data, ensure_ascii=False)}\n"
+        f"响应长度：{len(text)} 字节{suffix}\n"
+        f"响应原文：{body}",
+        config.CATEGORY_SYSTEM,
+    )
+
+
+def parse_capacity_detail(detail: dict[str, Any], teaching_class_id: str = "") -> dict[str, Any]:
+    """解析 ``capacity.do`` 的 ``data``（与列表接口字段不同，故单独实现）。
+
+    :param detail: 响应中的 ``data`` 字典。
+    :param teaching_class_id: 教学班 ID（回填进结果便于日志对照）。
+    :return: 含 ``teaching_class_id`` / ``capacity`` / ``selected`` / ``free`` / ``is_full``。
+    """
+
+    def number(*keys: str) -> int | None:
+        for key in keys:
+            value = detail.get(key)
+            if value is None or value == "":
+                continue
+            try:
+                return int(str(value).strip())
+            except ValueError:
+                continue
+        return None
+
+    capacity = number("mainClassCapacity", "classCapacity")
+    selected = number("mainElectiveNumber", "numberOfFirstVolunteer")
+    free = None if capacity is None or selected is None else capacity - selected
+    return {
+        "teaching_class_id": teaching_class_id or str(detail.get("teachingClassID") or ""),
+        "capacity": capacity,
+        "selected": selected,
+        "free": free,
+        "is_full": None if free is None else free <= 0,
+        "non_main_capacity": number("nonMainClassCapacity"),
+        "non_main_selected": number("nonMainElectiveNumber"),
+    }
 
 
 def format_enroll_report(
@@ -455,19 +603,178 @@ class ApiClient:
             priority,
             name=f"{action}-{teaching_class_id}",
         )
-        success = "添加选课志愿成功" in text
-        outcome = EnrollOutcome(
+        return self._finish_write(
+            action=action,
+            source=source,
+            teaching_class_id=teaching_class_id,
+            url=url,
+            form_data=form_data,
+            text=text,
+            payload_preview=payload_preview,
+        )
+
+    async def drop_course(
+        self,
+        teaching_class_id: str,
+        priority: int = config.PRIORITY_HIGH,
+        source: str = config.SOURCE_TASK,
+    ) -> EnrollOutcome:
+        """提交退课（删除选课志愿）写请求。
+
+        .. danger::
+           与 :meth:`enroll` 相同，受 ``config.ENABLE_WRITE_API`` 总开关保护：
+           开关为 ``False`` 时**只构造并打印报文**，不会发起任何请求。
+
+        :param teaching_class_id: 教学班 ID。
+        :param priority: 请求优先级（用户手动触发，默认最高）。
+        :param source: 日志来源模块。
+        :return: :class:`EnrollOutcome` 结果对象。
+        :raises MissingCredentialsError: 关键凭证缺失。
+        """
+        action = "退课提交"
+        credentials = self._current_credentials(action)
+        form_data = {"deleteParam": build_delete_param(credentials, teaching_class_id)}
+        headers = self._build_headers(credentials, use_token=True)
+        url = config.BASE_URL + config.EP_DELETE_VOLUNTEER
+        report = format_enroll_report(url, form_data, headers)
+        payload_preview = {
+            "teachingClassId": teaching_class_id,
+            "studentCode": credentials.student_code,
+            "electiveBatchCode": credentials.elective_batch_code,
+        }
+
+        if not config.ENABLE_WRITE_API:
+            self._logger.warning(
+                source,
+                f"写接口总开关已关闭（ENABLE_WRITE_API=False），{action} 仅构造报文、不发送真实请求。",
+                config.CATEGORY_FAILURE,
+            )
+            self._logger.info(source, report, config.CATEGORY_FAILURE)
+            print(report)
+            return EnrollOutcome(
+                sent=False,
+                success=False,
+                message=f"写接口已禁用（ENABLE_WRITE_API=False），{action}报文已打印，未发送请求",
+                payload=payload_preview,
+            )
+
+        self._logger.warning(
+            source,
+            f"ENABLE_WRITE_API=True，即将真实发起{action}写请求，请自行承担风控与账号风险。",
+            config.CATEGORY_FAILURE,
+        )
+        text = await self._queue.submit(
+            lambda: self._post_form(
+                config.EP_DELETE_VOLUNTEER,
+                form_data,
+                headers,
+                source=source,
+            ),
+            priority,
+            name=f"{action}-{teaching_class_id}",
+        )
+        return self._finish_write(
+            action=action,
+            source=source,
+            teaching_class_id=teaching_class_id,
+            url=url,
+            form_data=form_data,
+            text=text,
+            payload_preview=payload_preview,
+        )
+
+    def _finish_write(
+        self,
+        action: str,
+        source: str,
+        teaching_class_id: str,
+        url: str,
+        form_data: dict[str, str],
+        text: str,
+        payload_preview: dict[str, Any],
+    ) -> EnrollOutcome:
+        """统一处理写接口响应：分类 → 落日志 → 返回结果。
+
+        :param action: 动作描述。
+        :param source: 日志来源模块。
+        :param teaching_class_id: 教学班 ID。
+        :param url: 请求地址。
+        :param form_data: 表单字段。
+        :param text: 响应原文。
+        :param payload_preview: 结果对象里附带的报文字段摘要。
+        :return: :class:`EnrollOutcome`。
+        :raises NotAuthenticatedError: 登录态失效。
+        """
+        kind, code, message = classify_response_text(text)
+        if kind == RESPONSE_OK:
+            self._logger.info(
+                source, f"{action}成功：教学班 {teaching_class_id}（{message}）", config.CATEGORY_SUCCESS
+            )
+            return EnrollOutcome(
+                sent=True,
+                success=True,
+                message=f"{action}成功：{message}",
+                payload=payload_preview,
+                response_text=text,
+            )
+        if kind == RESPONSE_BUSINESS_ERROR:
+            # code=2：服务器明确拒绝，msg 就是原因（如实测的 MOOC 门数上限）
+            self._logger.warning(
+                source, f"{action}被服务器拒绝：{message}", config.CATEGORY_FAILURE
+            )
+            return EnrollOutcome(
+                sent=True,
+                success=False,
+                message=f"{action}被服务器拒绝：{message}",
+                payload=payload_preview,
+                response_text=text,
+            )
+        if kind == RESPONSE_UNAUTHENTICATED:
+            raise NotAuthenticatedError(
+                f"{action} 登录态已失效（code={code}，msg={message}），"
+                f"请在内嵌网页重新登录后再试。"
+            )
+        # 未识别：全量留档，便于后续开发补齐分支
+        dump_unknown_response(self._logger, action, url, form_data, text)
+        return EnrollOutcome(
             sent=True,
-            success=success,
-            message=f"{action}{'成功' if success else '失败'}：{text[:200]}",
+            success=False,
+            message=f"{action}返回未识别的结果（已全量写入日志）：code={code}，msg={message}",
             payload=payload_preview,
             response_text=text,
         )
-        if success:
-            self._logger.info(source, f"{action}成功：教学班 {teaching_class_id}", config.CATEGORY_SUCCESS)
-        else:
-            self._logger.warning(source, outcome.message, config.CATEGORY_FAILURE)
-        return outcome
+
+    async def query_capacity(
+        self,
+        teaching_class_id: str,
+        batch_code: str,
+        priority: int = config.PRIORITY_HIGH,
+        source: str = config.SOURCE_TASK,
+    ) -> dict[str, Any]:
+        """查询教学班课容量（**只读**，不触发任何写操作）。
+
+        抓包实测（``docs/har.json`` [54]）：返回的 ``data`` 中
+        ``classCapacity`` / ``numberOfFirstVolunteer`` 可能为 ``null``，
+        真实数据在 ``mainClassCapacity``（容量）与 ``mainElectiveNumber``（已选人数），
+        另有 ``nonMain*`` 两个字段。
+
+        :param teaching_class_id: 教学班 ID。
+        :param batch_code: 选课批次号。
+        :param priority: 请求优先级。
+        :param source: 日志来源模块。
+        :return: 含 ``capacity`` / ``selected`` / ``free`` / ``is_full`` 的字典。
+        """
+        action = "查询课容量"
+        credentials = self._current_credentials(action)
+        form_data = build_capacity_form(teaching_class_id, batch_code)
+        headers = self._build_headers(credentials, use_token=True)
+        text = await self._queue.submit(
+            lambda: self._post_form(config.EP_CAPACITY, form_data, headers, source=source),
+            priority,
+            name=f"{action}-{teaching_class_id}",
+        )
+        detail = (self._parse_json(text, action).get("data") or {})
+        return parse_capacity_detail(detail, teaching_class_id)
 
     # -- 底层 http（仅可由队列调用） ----------------------------------------
     async def _post_form(
@@ -591,7 +898,15 @@ class ApiClient:
                     f"{action} 登录态已失效：服务器返回 code={code}，msg={message}；"
                     f"请在浏览器重新登录后重新复制 cookie 与 token。"
                 )
-            raise ApiError(f"{action} 服务器返回业务错误：code={code}，msg={message}")
+            if code == config.RESP_CODE_SUCCESS:
+                # code=1 但没有 dataList：部分接口（如 capacity.do）成功时只返回 data 对象，
+                # 属于正常成功响应，直接放行。
+                return data
+            if code == config.RESP_CODE_BUSINESS_ERROR:
+                raise ApiError(f"{action} 服务器返回业务错误：code={code}，msg={message}")
+            # 既不是成功、也不是已知业务拒绝：结构未识别，全量留档供后续开发
+            dump_unknown_response(self._logger, action, "-", {"note": "只读接口响应未识别"}, text)
+            raise ApiError(f"{action} 返回未识别的结果（code={code}，msg={message}，原文已全量写入日志）")
         if code == "302" or (message and "登录" in message):
             raise NotAuthenticatedError(
                 f"{action} 登录态已失效：服务器返回 code={code}，msg={message}；"

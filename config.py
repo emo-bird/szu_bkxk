@@ -214,8 +214,12 @@ EP_RECOMMENDED_COURSE: str = "xsxkapp/sys/xsxkapp/elective/recommendedCourse.do"
 EP_PUBLIC_COURSE: str = "xsxkapp/sys/xsxkapp/elective/publicCourse.do"
 # 已选课程结果查询
 EP_COURSE_RESULT: str = "xsxkapp/sys/xsxkapp/elective/courseResult.do"
-# 选课提交（写接口，默认禁用）
+# 选课提交（写接口，默认禁用）：表单 addParam=<urlencoded JSON>
 EP_VOLUNTEER: str = "xsxkapp/sys/xsxkapp/elective/volunteer.do"
+# 退课（删除选课志愿，写接口）：表单 deleteParam=<urlencoded JSON>
+EP_DELETE_VOLUNTEER: str = "xsxkapp/sys/xsxkapp/elective/deleteVolunteer.do"
+# 教学班课容量查询（**只读**）：表单 teachingClassId + batchCode
+EP_CAPACITY: str = "xsxkapp/sys/xsxkapp/elective/teachingclass/capacity.do"
 # 课程收藏（写操作，见 docs/TODO.md，暂未接入）
 EP_FAVORITE: str = "xsxkapp/sys/xsxkapp/elective/favorite.do"
 # 选课批次查询（公开接口，返回 schoolTerm 等）
@@ -253,6 +257,16 @@ COURSE_QUERY_PLAN: dict[str, tuple[str, str]] = {
 
 # 【抓包实测】服务器 pageNumber 为 **0 基**：pageNumber=0 才是第 1 页。
 QUERY_FIRST_PAGE: int = 0
+# 服务器业务返回码（来自 docs/har.json 实测）
+#: 成功：msg 为「添加选课志愿成功」/「删除选课志愿成功」等
+RESP_CODE_SUCCESS: str = "1"
+#: 业务拒绝：msg 即拒绝原因，如「已选mooc课程，学生每学期只允许4门mooc课程」
+RESP_CODE_BUSINESS_ERROR: str = "2"
+#: 登录态失效
+RESP_CODE_UNAUTHENTICATED: str = "302"
+# 未识别响应全量写入日志的长度上限（供后续开发补齐分支）
+UNKNOWN_RESPONSE_DUMP_LIMIT: int = 8000
+
 # 查询分页大小（与浏览器一致）
 QUERY_PAGE_SIZE: int = _as_int(SETTINGS.get("query_page_size"), 10, minimum=1, maximum=100)
 # 单个课程类别最多翻页数量，防止异常响应导致请求失控（待抓包校验后调整）
