@@ -472,22 +472,6 @@ def open_in_real_browser(state: dict) -> None:
     threading.Thread(target=_open_in_real_browser_async, args=(state,), daemon=True).start()
 
 
-def open_in_system_browser() -> None:
-    """用系统默认浏览器打开选课网页（会出现在你日常浏览器的标签页里）。
-
-    .. note::
-       这条路径**不注入**我们的会话：日常浏览器有自己的 cookie/存储，
-       页面的登录模块会用它自己的会话（含统一身份认证 SSO）自动处理。
-       若那边登录态已过期，页面会引导你重新登录。
-       它的好处是标签页就在你日常浏览器里，能与其他标签页共存。
-    """
-    import webbrowser
-
-    url = config.SITE_HOME_URL
-    print(f"\n[系统浏览器] 已请求打开 {url}（使用你日常浏览器的会话；若已过期请在该窗口重新登录）")
-    webbrowser.open(url)
-
-
 def _open_in_real_browser_async(state: dict) -> None:
     """后台线程入口：跑异步的「打开真实浏览器」流程。
 
@@ -518,10 +502,16 @@ async def _open_in_real_browser(state: dict) -> None:
     port = DEBUG_PORT + 10
     profile_dir = PROJECT_ROOT / ".edge_real_profile"
     profile_dir.mkdir(parents=True, exist_ok=True)
-    cdp_bridge.launch_edge(port, profile_dir, url="about:blank")
+    # 已有实例就直接复用：Chromium 对同一 user-data-dir 是单例，重复启动会把请求
+    # 转交给旧实例后自行退出，调试端口仍属旧实例；旧窗口一关就会出现
+    # "Cannot write to closing transport"（实测连点三次前两次报这个错）。
+    if await cdp_bridge.is_cdp_alive(port):
+        print("    复用已在运行的真实浏览器实例")
+    else:
+        cdp_bridge.launch_edge(port, profile_dir, url="about:blank")
     try:
         version = await cdp_bridge.wait_for_cdp(port, timeout=40)
-        print(f"    已启动：{version.get('Browser')}（独立 profile {profile_dir.name}）")
+        print(f"    已就绪：{version.get('Browser')}（独立 profile {profile_dir.name}）")
     except Exception as exc:  # noqa: BLE001
         print(f"    启动 Edge 失败：{exc}")
         return
@@ -793,13 +783,7 @@ def main() -> int:
         "启动一个独立 profile 的 Edge，把本次会话的 cookie 与 sessionStorage 写进去并打开选课页。\n"
         "不会影响你日常浏览器的数据。"
     )
-    system_button = QPushButton("在系统默认浏览器打开")
-    system_button.setToolTip(
-        "用系统默认浏览器打开选课首页（标签页会出现在你日常浏览器里）。\n"
-        "该路径使用你日常浏览器自己的会话；若已过期，页面会引导重新登录。"
-    )
     toolbar.addWidget(browser_button)
-    toolbar.addWidget(system_button)
     toolbar.addWidget(hint, 1)
     layout.addLayout(toolbar)
 
@@ -887,7 +871,6 @@ def main() -> int:
     inbox_timer.start()
 
     browser_button.clicked.connect(lambda: open_in_real_browser(state))
-    system_button.clicked.connect(open_in_system_browser)
 
     def watch() -> None:
         """收尾：后台任务结束或出错时退出，并防止整体卡死。

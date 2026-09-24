@@ -514,6 +514,25 @@ async def wait_for_cdp(port: int, timeout: float = 40.0) -> dict:
     raise TimeoutError(f"CDP 未就绪（{last_error}）")
 
 
+async def is_cdp_alive(port: int, timeout: float = 1.5) -> bool:
+    """探测指定端口上是否已有可用的 CDP 服务。
+
+    用途：重复点击「在真实浏览器打开」时，**复用**已在运行的浏览器实例。
+    否则会去启动第二个进程——而 Chromium 对同一 ``user-data-dir`` 是单例，
+    新进程会把请求转交给旧实例后自行退出，调试端口仍旧属于旧实例；
+    一旦旧窗口被关掉就会出现 ``Cannot write to closing transport``。
+
+    :param port: 调试端口。
+    :param timeout: 探测超时秒数。
+    :return: 已有可用 CDP 时返回 ``True``。
+    """
+    try:
+        await wait_for_cdp(port, timeout=timeout)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 async def pick_target(port: int, prefer_host: str = "szu.edu.cn") -> dict:
     """挑选一个可用的 page 调试目标。
 
@@ -538,6 +557,7 @@ __all__ = [
     "CdpClient",
     "CapturedResponse",
     "find_edge",
+    "is_cdp_alive",
     "launch_edge",
     "pick_target",
     "wait_for_cdp",
