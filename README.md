@@ -265,13 +265,16 @@ icacls C:\Project /restore "$env:TEMP\szu_bkxk_dacl_backup.txt"
 :: 等价的手工命令（在项目根目录执行）
 .venv\Scripts\python.exe -m PyInstaller ^
   --noconfirm --clean --windowed --name szu_bkxk ^
+  --distpath build --workpath build\_work ^
   --add-data "vendor\webview2;vendor\webview2" ^
   --collect-all pythonnet --collect-all clr_loader ^
   --hidden-import clr ^
   main.py
 ```
 
-产物为 `dist\szu_bkxk\szu_bkxk.exe`；**整个 `dist\szu_bkxk` 目录都要保留**，不能只拷贝 exe。
+产物为 **`build\szu_bkxk\szu_bkxk.exe`**；**整个 `build\szu_bkxk` 目录都要保留**，不能只拷贝 exe。
+
+> `build/` 与 `dist/` 都在 `.gitignore` 里 —— 二进制产物**不进版本库**，发布时请把 `build\szu_bkxk` 目录单独打包（zip）分发。
 
 | 参数 | 作用 |
 | --- | --- |
@@ -279,6 +282,7 @@ icacls C:\Project /restore "$env:TEMP\szu_bkxk_dacl_backup.txt"
 | `--collect-all pythonnet` / `clr_loader` | pythonnet 的托管 DLL 与运行时加载器必须整体收集，否则内嵌网页起不来 |
 | `--hidden-import clr` | `import clr` 是运行时动态导入，静态分析看不到 |
 | `--windowed` | 不带控制台窗口；排错时改成 `--console` 可看到启动期报错 |
+| `--distpath build` `--workpath build\_work` | 产物放到 `build\`（中间文件放 `build\_work\`，避免混在一起） |
 
 > 打包后 **可写产物**（`logs/`、`courses_cache.json`、`tasks_config.json`、浏览器 profile）
 > 都写在 **exe 所在目录**；只读资源（WebView2 SDK）在包内。这一点由 `config.APP_DIR`

@@ -3,7 +3,7 @@ rem ===========================================================================
 rem  深大选课辅助工具 - 双击打包脚本（PyInstaller）
 rem
 rem  用法：直接双击本文件即可。
-rem  产物：dist\szu_bkxk\szu_bkxk.exe（整个 dist\szu_bkxk 目录都要保留）
+rem  产物：build\szu_bkxk\szu_bkxk.exe（整个 build\szu_bkxk 目录都要保留）
 rem
 rem  说明：
 rem    - 本脚本只做打包，**不会**运行程序、不会访问学校站点；
@@ -49,7 +49,7 @@ if errorlevel 1 (
 
 echo [2/3] 清理旧产物 ...
 if exist "build" rmdir /s /q "build"
-if exist "dist\szu_bkxk" rmdir /s /q "dist\szu_bkxk"
+if exist "build\szu_bkxk" rmdir /s /q "build\szu_bkxk"
 
 echo [3/3] 开始打包（约 1-3 分钟，请勿关闭窗口）...
 ".venv\Scripts\python.exe" -m PyInstaller ^
@@ -57,6 +57,8 @@ echo [3/3] 开始打包（约 1-3 分钟，请勿关闭窗口）...
   --clean ^
   --windowed ^
   --name szu_bkxk ^
+  --distpath build ^
+  --workpath build\_work ^
   --add-data "vendor\webview2;vendor\webview2" ^
   --collect-all pythonnet ^
   --collect-all clr_loader ^
@@ -67,7 +69,7 @@ if errorlevel 1 (
     echo.
     echo [错误] 打包失败。若提示缺少 clr / Python.Runtime，请改用下面的「排错版」命令：
     echo        .venv\Scripts\python.exe -m PyInstaller --noconfirm --clean --console ^
-    echo          --name szu_bkxk --add-data "vendor\webview2;vendor\webview2" ^
+    echo          --name szu_bkxk --distpath build --add-data "vendor\webview2;vendor\webview2" ^
     echo          --collect-all pythonnet --collect-all clr_loader ^
     echo          --hidden-import clr --debug imports main.py
     echo.
@@ -78,8 +80,8 @@ if errorlevel 1 (
 echo.
 echo ============================================================
 echo   打包完成
-echo   可执行文件：dist\szu_bkxk\szu_bkxk.exe（双击运行）
-echo   注意：整个 dist\szu_bkxk 目录都要保留，不能只拷贝 exe
+echo   可执行文件：build\szu_bkxk\szu_bkxk.exe（双击运行）
+echo   注意：整个 build\szu_bkxk 目录都要保留，不能只拷贝 exe
 echo ============================================================
 echo.
 pause
