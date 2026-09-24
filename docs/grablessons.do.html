@@ -1,0 +1,1708 @@
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="renderer" content="webkit">
+<meta name="format-detection" content="telephone=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,Chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
+
+
+
+
+
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,Chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Cache-Control" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>选课</title>
+    <link rel="stylesheet" href="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/css/bhTip.css">
+    <link rel="stylesheet" href="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/css/grablessons/grablessons.css">
+    <link rel="stylesheet" href="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/css/curriculavariable/bhwindow.css">
+    <link rel="stylesheet" href="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/css/curriculavariable/jqxTabs.css">
+    <link rel="stylesheet" href="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/css/table.css">
+</head>
+<body>
+	<div class="main" style="width: 1478px;">
+        <!--头部-->
+        <header class="cv-page-header cv-bg-color-primary cv-clearfix-child">
+            <!--logo-->
+            <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/index/logo-mini.png" id="cv-log-img">
+
+            <!--选课类型tab-->
+            <div class="cv-pull-left" cv-role="tabs">
+                <ul id="cvPageHeadTab" class="cv-tabs" cv-role="tabList">
+                    <li>
+                        <div href="#cvRecommendCourse" id="aRecommendCourse" cv-role="tab" teachingclasstype="TJKC"><div><span class="chinese" title="Course in this class">本班课程</span></div></div>
+                    </li>
+                    <li class="cv-active">
+                        <div href="#cvProgramCourse" id="aProgramCourse" cv-role="tab" teachingclasstype="FANKC"><div><span class="chinese" title="Curriculum within a programme">方案内课程</span></div></div>
+                    </li>
+                    <li>
+                        <div href="#cvUnProgramCourse" id="aUnProgramCourse" cv-role="tab" teachingclasstype="FAWKC"><div><span class="chinese" title="Out-of-program Curriculum">方案外课程</span></div></div>
+                    </li>
+                    <li>
+                        <div href="#cvPublicCourse" id="aPublicCourse" cv-role="tab" teachingclasstype="XGXK"><div><span class="chinese" title="Public Elective Course">校公选课</span></div></div>
+                    </li>
+                    <li>
+                        <div href="#cvRetakeCourse" id="aRetakeCourse" cv-role="tab" disabled="disabled" teachingclasstype="CXKC">
+                            重修
+                        </div>
+                    </li>
+                    <li>
+                        <div href="#cvSportCourse" id="aSportCourse" cv-role="tab" teachingclasstype="TYKC"><div><span class="chinese" title="Physical Education Curriculum">体育课程</span></div></div>
+                    </li>
+                    <li>
+                        <div href="#cvMinorCourse" id="aMinorCourse" cv-role="tab" teachingclasstype="FXKC"><div><span class="chinese" title="Minor in a double degree programme">辅修专业及辅修学士学位课程</span></div></div>
+                    </li>
+                    <li>
+                        <div href="#cvMoocCourse" id="aMoocCourse" cv-role="tab" teachingclasstype="MOOC"><div><span class="chinese" title="MOOC">MOOC</span></div></div>
+                    </li>
+                    <li>
+                        <div href="#cvSchoolCourse" id="aSchoolCourse" cv-role="tab" teachingclasstype="QXKC"><div><span class="chinese" title="Whole School Curriculum">全校课程选课校验</span></div></div>
+                    </li>
+                </ul>
+            </div>
+
+            <nav>
+                <div id="logout">
+                	<div>退出</div>
+                	<div>EXIT</div>
+                </div>
+            </nav>
+        </header>
+      
+        <!--推荐选课模块-->
+        <article id="cvRecommendCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <header class="cv-course-header cv-clearfix-child">
+                <div class="cv-pull-left">
+                    <h3 class="cv-mb-8" id="recommendTitle">推荐选课</h3>
+                    <span class="cv-caption-text" id="recommendSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="recommendSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="TJKC" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否冲突 : </label>
+                        <select class="cv-search-input search_sfct" id="recommend_sfct" coursetype="TJKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">冲突</option>
+                            <option value="0">不冲突</option>
+                        </select>
+                        <label class="cv-search-label">是否已满 : </label>
+                        <select class="cv-search-input search_sfym" id="recommend_sfym" coursetype="TJKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">已满</option>
+                            <option value="0">未满</option>
+                        </select>
+                        <label class="cv-search-label">课程学分: </label>
+                        <input class="cv-search-input search_xkxf" id="recommend_xkxf" placeholder="请输入课程学分" type="text" coursetype="TJKC">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">课程性质 : </label>
+                        <select class="cv-search-input search_kcxz" id="recommend_kcxz" coursetype="TJKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">必修</option><option value="02">选修</option></select>
+                        <label class="cv-search-label">课程类别 : </label>
+                        <select class="cv-search-input search_kclb" id="recommend_kclb" coursetype="TJKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">基本通识课</option><option value="08">专业核心课</option><option value="09">专业选修课</option><option value="11">公共选修课</option><option value="12">公共必修课</option><option value="14">综合选修课</option></select>
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="recommend_kkdw" coursetype="TJKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="recommend_skxq" coursetype="TJKC">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="recommend_ksjc" coursetype="TJKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="recommend_jsjc" coursetype="TJKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">文 / 理 : </label>
+                        <select class="cv-search-input search_xflb" id="recommend_xflb" coursetype="TJKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">文科学分</option><option value="02">理科学分</option><option value="03">无</option></select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+						<select class="cv-search-input search_remote" id="recommend_remote" coursetype="TJKC">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+						<label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="recommend_kczh" placeholder="请输入课程总号" type="text" coursetype="TJKC">
+                    </div>
+                </div>
+            </header>
+
+            <!--专家模式模块-->
+            <div id="cvExpertMode" class="cv-expert-mode">
+                <div id="cvCanSelectRecommendCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!-- 方案内课程模块 -->
+        <article id="cvProgramCourse" class=" cv-pb-38" style="min-height: 610px;">
+            <header class="cv-course-header cv-clearfix-child">
+                <div>
+                    <div class="cv-pull-left">
+                        <h3 class="cv-mb-8" id="programTitle">方案内课程</h3>
+                        <span class="cv-caption-text" id="programSpan">2026-2027学年第一学期&nbsp;1-18周<span style="margin-left: 8px;"><span class="home-currentCampus-name">粤海校区</span><span class="home-change-campus" style="margin-left: 4px;color: #047ADC;cursor: pointer;">切换</span></span></span>
+                        <div style="padding-top:5px;padding-bottom:5px">
+                            <input id="programSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="FANKC" style="width:600px">
+                        </div>
+                        <div style="padding-top:5px;padding-bottom:5px">
+                            <label class="cv-search-label">是否冲突 : </label>
+                            <select class="cv-search-input search_sfct" id="program_sfct" coursetype="FANKC">
+                                <option value="2" selected="selected">--请选择--</option>
+                                <option value="1">冲突</option>
+                                <option value="0">不冲突</option>
+                            </select>
+                            <label class="cv-search-label">是否已满 : </label>
+                            <select class="cv-search-input search_sfym" id="program_sfym" coursetype="FANKC">
+                                <option value="2" selected="selected">--请选择--</option>
+                                <option value="1">已满</option>
+                                <option value="0">未满</option>
+                            </select>
+                            <label class="cv-search-label">是否Mooc : </label>
+                            <select class="cv-search-input search_sfmooc" id="program_sfmooc" coursetype="FANKC">
+                                <option value="2" selected="selected">--请选择--</option>
+                                <option value="1">是</option>
+                                <option value="0">否</option>
+                            </select> 
+                            <label class="cv-search-label">课程学分: </label>
+                        	<input class="cv-search-input search_xkxf" id="program_xkxf" placeholder="请输入课程学分" type="text" coursetype="FANKC">
+                        </div>
+                        <div style="padding-top:5px;padding-bottom:5px">
+                            <label class="cv-search-label">课程性质 : </label>
+                            <select class="cv-search-input search_kcxz" id="program_kcxz" coursetype="FANKC">
+                                <option value="" selected="selected">--请选择--</option>
+                            <option value="01">必修</option><option value="02">选修</option></select>
+                            <label class="cv-search-label">课程类别 : </label>
+                            <select class="cv-search-input search_kclb" id="program_kclb" coursetype="FANKC">
+                                <option value="" selected="selected">--请选择--</option>
+                            <option value="01">基本通识课</option><option value="08">专业核心课</option><option value="09">专业选修课</option><option value="11">公共选修课</option><option value="12">公共必修课</option><option value="14">综合选修课</option></select>
+                            <label class="cv-search-label">开课单位 : </label>
+                            <select class="cv-search-input search_kkdw" id="program_kkdw" coursetype="FANKC">
+                                <option value="" selected="selected">--请选择--</option>
+                            <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select>
+                        </div>
+                        <div style="padding-top:5px;padding-bottom:5px">
+	                       	<label class="cv-search-label">星期 : </label>
+	                        <select class="cv-search-input search_skxq" id="program_skxq" coursetype="FANKC">
+	                            <option value="" selected="selected">--请选择--</option>
+	                            <option value="1">星期一</option>
+	                            <option value="2">星期二</option>
+	                            <option value="3">星期三</option>
+	                            <option value="4">星期四</option>
+	                            <option value="5">星期五</option>
+	                            <option value="6">星期六</option>
+	                            <option value="7">星期七</option>
+	                        </select>
+	                        <label class="cv-search-label">开始节次 : </label>
+	                        <select class="cv-search-input search_ksjc" id="program_ksjc" coursetype="FANKC">
+	                            <option value="" selected="selected">--请选择--</option>
+	                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+	                        <label class="cv-search-label">结束节次 : </label>
+	                        <select class="cv-search-input search_jsjc" id="program_jsjc" coursetype="FANKC">
+	                            <option value="" selected="selected">--请选择--</option>
+	                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+	                    </div>
+	                    <div style="padding-top:5px;padding-bottom:5px">
+                            <label class="cv-search-label">文 / 理 : </label>
+                            <select class="cv-search-input search_xflb" id="program_xflb" coursetype="FANKC">
+                                <option value="" selected="selected">--请选择--</option>
+                            <option value="01">文科学分</option><option value="02">理科学分</option><option value="03">无</option></select>
+                            <label class="cv-search-label">是否远程互动教学: </label>
+							<select class="cv-search-input search_remote" id="program_remote" coursetype="FANKC">
+								<option value="2" selected="selected">--请选择--</option>
+								<option value="1">是</option>
+								<option value="0">否</option>
+							</select>
+							<label class="cv-search-label">课程总号: </label>
+                        	<input class="cv-search-input search_kczh" id="program_kczh" placeholder="请输入课程总号" type="text" coursetype="FANKC">
+                        </div>
+                    </div>                    
+                </div>          
+            </header>
+            
+            <div id="cvProgramExpertMode" class="cv-expert-mode">
+                <div id="cvCanSelectProgramCourse" class="cv-tab-pane cv-active">
+        <div class="cv-list program-list">
+            <div class="cv-head">
+                <div class="cv-normal cv-num">课程号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-course">课程名称</div>
+                <div class="cv-sort cv-class" id="programSort">可选班级数</div>
+                <div class="cv-normal cv-type">课程类别</div>
+                <div class="cv-normal cv-nature">课程性质</div>
+                <div class="cv-normal cv-department-col">开课单位</div>
+                <div class="cv-normal cv-credit-type-col">文/理</div>
+                <div class="cv-normal cv-credit-col">学分</div>
+            </div>
+            <div class="cv-body" id="programBody">
+                
+        <div class="cv-row cv-active cv-expand" coursenumber="1900600001" index="0" ischoose="1" isopen="1">
+            <div class="cv-num">1900600001  <span class="cv-detail" data-num="1900600001">课程详情</span></div>
+			<div class="cv-courseTotalNumber">19006000</div>
+            <div class="cv-course">高等数学A（1）</div>
+            <div class="cv-class">28</div>
+            <div class="cv-type">专业核心课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">数学科学学院</div>
+            <div class="cv-credit-type-col">理科学分</div>
+            <div class="cv-credit-col">5</div>
+        <section><div id="202620271190060000118_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="0" ischoose="1" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[18]尹乐">[18]尹乐</span><button class="cv-btn cv-tag cv-one" type="button">已选</button></h5><div><button class="cv-btn cv-tag cv-danger cv-block-hide" type="button" title=""></button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-707,5-18周 星期四 1-2节 致理楼L1-707,5-18周 星期五 3-4节 致理楼L1-707">· 5-18周 星期二 3-4节 致理楼L1-707<br>· 5-18周 星期四 1-2节 致理楼L1-707<br>· 5-18周 星期五 3-4节 致理楼L1-707<br></div><div class="cv-caption-text" id="202620271190060000118_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="0">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer " type="button" tcid="202620271190060000118" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000118" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000118" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000101_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[01]傅赢芳">[01]傅赢芳</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 1-2节 致理楼L1-207,5-18周 星期四 3-4节 致理楼L1-207,5-18周 星期五 1-2节 致理楼L1-207">· 5-18周 星期二 1-2节 致理楼L1-207<br>· 5-18周 星期四 3-4节 致理楼L1-207<br>· 5-18周 星期五 1-2节 致理楼L1-207<br></div><div class="cv-caption-text" id="202620271190060000101_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="1">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。
+">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000101" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000101" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000101" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000102_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[02]陈芳芳">[02]陈芳芳</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期五 1-2节 致理楼L1-307,5-18周 星期四 3-4节 致理楼L1-307,5-18周 星期二 1-2节 致理楼L1-307">· 5-18周 星期五 1-2节 致理楼L1-307<br>· 5-18周 星期四 3-4节 致理楼L1-307<br>· 5-18周 星期二 1-2节 致理楼L1-307<br></div><div class="cv-caption-text" id="202620271190060000102_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="2">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。
+">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000102" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000102" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000102" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000103_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[03]陈琳">[03]陈琳</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期四 3-4节 致理楼L1-705,5-18周 星期五 1-2节 致理楼L1-705,5-18周 星期二 1-2节 致理楼L1-705">· 5-18周 星期四 3-4节 致理楼L1-705<br>· 5-18周 星期五 1-2节 致理楼L1-705<br>· 5-18周 星期二 1-2节 致理楼L1-705<br></div><div class="cv-caption-text" id="202620271190060000103_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="3">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。
+">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000103" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000103" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000103" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000104_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[04]周丹">[04]周丹</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 1-2节 致理楼L1-407,5-18周 星期四 3-4节 致理楼L1-407,5-18周 星期五 1-2节 致理楼L1-407">· 5-18周 星期二 1-2节 致理楼L1-407<br>· 5-18周 星期四 3-4节 致理楼L1-407<br>· 5-18周 星期五 1-2节 致理楼L1-407<br></div><div class="cv-caption-text" id="202620271190060000104_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="4">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000104" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000104" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000104" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000105_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[05]李兰">[05]李兰</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期四 3-4节 致理楼L1-507,5-18周 星期二 1-2节 致理楼L1-507,5-18周 星期五 1-2节 致理楼L1-507">· 5-18周 星期四 3-4节 致理楼L1-507<br>· 5-18周 星期二 1-2节 致理楼L1-507<br>· 5-18周 星期五 1-2节 致理楼L1-507<br></div><div class="cv-caption-text" id="202620271190060000105_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="5">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。
+">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000105" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000105" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000105" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000106_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[06]王远">[06]王远</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 1-2节 致理楼L1-607,5-18周 星期四 3-4节 致理楼L1-607,5-18周 星期五 1-2节 致理楼L1-607">· 5-18周 星期二 1-2节 致理楼L1-607<br>· 5-18周 星期四 3-4节 致理楼L1-607<br>· 5-18周 星期五 1-2节 致理楼L1-607<br></div><div class="cv-caption-text" id="202620271190060000106_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="6">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000106" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000106" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000106" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000107_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[07]尹乐">[07]尹乐</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 1-2节 致理楼L1-707,5-18周 星期四 3-4节 致理楼L1-707,5-18周 星期五 1-2节 致理楼L1-707">· 5-18周 星期二 1-2节 致理楼L1-707<br>· 5-18周 星期四 3-4节 致理楼L1-707<br>· 5-18周 星期五 1-2节 致理楼L1-707<br></div><div class="cv-caption-text" id="202620271190060000107_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="7">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000107" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000107" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000107" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000108_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[08]杜旭笙">[08]杜旭笙</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期四 3-4节 致理楼L1-205,5-18周 星期五 1-2节 致理楼L1-205,5-18周 星期二 1-2节 致理楼L1-205">· 5-18周 星期四 3-4节 致理楼L1-205<br>· 5-18周 星期五 1-2节 致理楼L1-205<br>· 5-18周 星期二 1-2节 致理楼L1-205<br></div><div class="cv-caption-text" id="202620271190060000108_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="8">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000108" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000108" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000108" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000109_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[09]张娜">[09]张娜</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期五 1-2节 致理楼L1-305,5-18周 星期二 1-2节 致理楼L1-305,5-18周 星期四 3-4节 致理楼L1-305">· 5-18周 星期五 1-2节 致理楼L1-305<br>· 5-18周 星期二 1-2节 致理楼L1-305<br>· 5-18周 星期四 3-4节 致理楼L1-305<br></div><div class="cv-caption-text" id="202620271190060000109_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="9">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000109" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000109" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000109" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000110_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[10]李杏">[10]李杏</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期四 3-4节 致理楼L1-405,5-18周 星期二 1-2节 致理楼L1-405,5-18周 星期五 1-2节 致理楼L1-405">· 5-18周 星期四 3-4节 致理楼L1-405<br>· 5-18周 星期二 1-2节 致理楼L1-405<br>· 5-18周 星期五 1-2节 致理楼L1-405<br></div><div class="cv-caption-text" id="202620271190060000110_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="10">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000110" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000110" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000110" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000111_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[11]宋元卓">[11]宋元卓</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 1-2节 致理楼L1-505,5-18周 星期四 3-4节 致理楼L1-505,5-18周 星期五 1-2节 致理楼L1-505">· 5-18周 星期二 1-2节 致理楼L1-505<br>· 5-18周 星期四 3-4节 致理楼L1-505<br>· 5-18周 星期五 1-2节 致理楼L1-505<br></div><div class="cv-caption-text" id="202620271190060000111_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="11">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000111" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000111" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000111" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000112_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[12]邱育珊">[12]邱育珊</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="大学英语（1）(5-18周 星期二 1-2节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 1-2节 致理楼L1-605,5-18周 星期四 3-4节 致理楼L1-605,5-18周 星期五 1-2节 致理楼L1-605">· 5-18周 星期二 1-2节 致理楼L1-605<br>· 5-18周 星期四 3-4节 致理楼L1-605<br>· 5-18周 星期五 1-2节 致理楼L1-605<br></div><div class="cv-caption-text" id="202620271190060000112_capacity" ismainselectobject="0"><span style="color: #000;">非主选</span>课容量:已满/3 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="12">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000112" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000112" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000112" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000113_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[13]傅赢芳">[13]傅赢芳</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-207,5-18周 星期四 1-2节 致理楼L1-207,5-18周 星期五 3-4节 致理楼L1-207">· 5-18周 星期二 3-4节 致理楼L1-207<br>· 5-18周 星期四 1-2节 致理楼L1-207<br>· 5-18周 星期五 3-4节 致理楼L1-207<br></div><div class="cv-caption-text" id="202620271190060000113_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="13">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000113" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000113" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000113" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000114_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[14]陈芳芳">[14]陈芳芳</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-307,5-18周 星期四 1-2节 致理楼L1-307,5-18周 星期五 3-4节 致理楼L1-307">· 5-18周 星期二 3-4节 致理楼L1-307<br>· 5-18周 星期四 1-2节 致理楼L1-307<br>· 5-18周 星期五 3-4节 致理楼L1-307<br></div><div class="cv-caption-text" id="202620271190060000114_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="14">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000114" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000114" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000114" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000115_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[15]周丹">[15]周丹</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-407,5-18周 星期四 1-2节 致理楼L1-407,5-18周 星期五 3-4节 致理楼L1-407">· 5-18周 星期二 3-4节 致理楼L1-407<br>· 5-18周 星期四 1-2节 致理楼L1-407<br>· 5-18周 星期五 3-4节 致理楼L1-407<br></div><div class="cv-caption-text" id="202620271190060000115_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="15">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000115" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000115" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000115" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000116_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[16]李兰">[16]李兰</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-507,5-18周 星期四 1-2节 致理楼L1-507,5-18周 星期五 3-4节 致理楼L1-507">· 5-18周 星期二 3-4节 致理楼L1-507<br>· 5-18周 星期四 1-2节 致理楼L1-507<br>· 5-18周 星期五 3-4节 致理楼L1-507<br></div><div class="cv-caption-text" id="202620271190060000116_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="16">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000116" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000116" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000116" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000117_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[17]王远">[17]王远</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-607,5-18周 星期四 1-2节 致理楼L1-607,5-18周 星期五 3-4节 致理楼L1-607">· 5-18周 星期二 3-4节 致理楼L1-607<br>· 5-18周 星期四 1-2节 致理楼L1-607<br>· 5-18周 星期五 3-4节 致理楼L1-607<br></div><div class="cv-caption-text" id="202620271190060000117_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="17">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000117" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000117" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000117" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000119_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[19]杜旭笙">[19]杜旭笙</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期五 3-4节 致理楼L1-205,5-18周 星期二 3-4节 致理楼L1-205,5-18周 星期四 1-2节 致理楼L1-205">· 5-18周 星期五 3-4节 致理楼L1-205<br>· 5-18周 星期二 3-4节 致理楼L1-205<br>· 5-18周 星期四 1-2节 致理楼L1-205<br></div><div class="cv-caption-text" id="202620271190060000119_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="18">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000119" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000119" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000119" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000120_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[20]张娜">[20]张娜</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-305,5-18周 星期四 1-2节 致理楼L1-305,5-18周 星期五 3-4节 致理楼L1-305">· 5-18周 星期二 3-4节 致理楼L1-305<br>· 5-18周 星期四 1-2节 致理楼L1-305<br>· 5-18周 星期五 3-4节 致理楼L1-305<br></div><div class="cv-caption-text" id="202620271190060000120_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/70 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="19">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000120" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000120" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000120" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000121_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[21]潘彬彬">[21]潘彬彬</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-505,5-18周 星期四 1-2节 致理楼L1-505,5-18周 星期五 3-4节 致理楼L1-505">· 5-18周 星期二 3-4节 致理楼L1-505<br>· 5-18周 星期四 1-2节 致理楼L1-505<br>· 5-18周 星期五 3-4节 致理楼L1-505<br></div><div class="cv-caption-text" id="202620271190060000121_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="20">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000121" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000121" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000121" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000122_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[22]张爱林">[22]张爱林</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期四 1-2节 致理楼L1-605,5-18周 星期五 3-4节 致理楼L1-605,5-18周 星期二 3-4节 致理楼L1-605">· 5-18周 星期四 1-2节 致理楼L1-605<br>· 5-18周 星期五 3-4节 致理楼L1-605<br>· 5-18周 星期二 3-4节 致理楼L1-605<br></div><div class="cv-caption-text" id="202620271190060000122_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="21">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000122" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000122" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000122" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000123_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[23]冯纪强">[23]冯纪强</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期二 3-4节 致理楼L1-705,5-18周 星期四 1-2节 致理楼L1-705,5-18周 星期五 3-4节 致理楼L1-705">· 5-18周 星期二 3-4节 致理楼L1-705<br>· 5-18周 星期四 1-2节 致理楼L1-705<br>· 5-18周 星期五 3-4节 致理楼L1-705<br></div><div class="cv-caption-text" id="202620271190060000123_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/96 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="22">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="学生不要同时修读《高等数学C（1）》和《高等数学A（1）》。
+同时选课可能会造成期末考试时间冲突。">选课说明：学生不要同时修读《高等数学C（1）》和《...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000123" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000123" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000123" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000135_courseDiv" class="cv-course-card" canselect="1" isfull="0" isconflict="1" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[35]谢颖">[35]谢颖</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger " type="button" title="高等数学A（1）(5-18周 星期二 3-4节)">课程冲突</button><button class="cv-btn cv-tag cv-danger cv-isfull cv-block-hide" type="button"></button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span></span></div><div title="5-18周 星期五 3-4节 致理楼L3-709,5-18周 星期二 3-4节 致理楼L3-709,5-18周 星期二 5-5节 致理楼L3-709,5-18周 星期五 5-5节 致理楼L3-709">· 5-18周 星期五 3-4节 致理楼L3-709<br>· 5-18周 星期二 3-4节 致理楼L3-709<br>· 5-18周 星期二 5-5节 致理楼L3-709<br>· 5-18周 星期五 5-5节 致理楼L3-709<br></div><div class="cv-caption-text" id="202620271190060000135_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:39/50 可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="23">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="仅供港澳台学生及部分2027届预毕业重修生修读。
+若需要修读此课程的学生超过限选人数，开课单位将在选课确认阶段人工取消部分重修生的选课。
+从第5周开始开课。">选课说明：仅供港澳台学生及部分2027届预毕业重修...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000135" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000135" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000135" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000136_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="0" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[36]顾燕红">[36]顾燕红</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger cv-block-hide" type="button" title=""></button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span>Mooc课程</span></div><div title="5-9周(单),11-13周,15-17周 星期三 11-14节 汇文楼H-05">· 5-9周(单)<br>· 11-13周<br>· 15-17周 星期三 11-14节 汇文楼H-05<br></div><div class="cv-caption-text" id="202620271190060000136_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/117 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="24">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="5学分校内MOOC课程，预计17周结课，有线下见面课，考核方式为线上+线下。UOOC平台学习网址：uooc.net.cn， 或点击校内网下方—UOOC课程平台登录。教务系统与UOOC平台双选才能修学分。
+本课程是国家级一流线上线下混合式课程。">选课说明：5学分校内MOOC课程，预计17周结课，...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000136" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000136" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000136" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000137_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="0" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[37]丰建文">[37]丰建文</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger cv-block-hide" type="button" title=""></button><button class="cv-btn cv-tag cv-danger cv-isfull " type="button">人数已满</button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span>Mooc课程</span></div><div title="5-9周(单),11-13周,15-17周 星期三 11-14节 汇文楼H-03">· 5-9周(单)<br>· 11-13周<br>· 15-17周 星期三 11-14节 汇文楼H-03<br></div><div class="cv-caption-text" id="202620271190060000137_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:已满/95 不可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="25">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="5学分校内MOOC课程，预计17周结课，有线下见面课，考核方式为线上+线下。UOOC平台学习网址：uooc.net.cn， 或点击校内网下方—UOOC课程平台登录。教务系统与UOOC平台双选才能修学分。
+本课程是国家级一流线上线下混合式课程。">选课说明：5学分校内MOOC课程，预计17周结课，...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000137" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000137" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000137" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000138_courseDiv" class="cv-course-card" canselect="1" isfull="0" isconflict="0" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[38]段琴">[38]段琴</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger cv-block-hide" type="button" title=""></button><button class="cv-btn cv-tag cv-danger cv-isfull cv-block-hide" type="button"></button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span>Mooc课程</span></div><div title="5-9周(单),11-13周,15-17周 星期三 11-14节 汇文楼H1-102">· 5-9周(单)<br>· 11-13周<br>· 15-17周 星期三 11-14节 汇文楼H1-102<br></div><div class="cv-caption-text" id="202620271190060000138_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:64/75 可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="26">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="5学分校内MOOC课程，预计17周结课，有线下见面课，考核方式为线上+线下。UOOC平台学习网址：uooc.net.cn， 或点击校内网下方—UOOC课程平台登录。教务系统与UOOC平台双选才能修学分。
+本课程是国家级一流线上线下混合式课程。">选课说明：5学分校内MOOC课程，预计17周结课，...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000138" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000138" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000138" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div><div id="202620271190060000139_courseDiv" class="cv-course-card" canselect="1" isfull="0" isconflict="0" ischoose="null" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[39]杨莹">[39]杨莹</span><button class="cv-btn cv-tag cv-block-hide" type="button"></button></h5><div><button class="cv-btn cv-tag cv-danger cv-block-hide" type="button" title=""></button><button class="cv-btn cv-tag cv-danger cv-isfull cv-block-hide" type="button"></button><button class="cv-btn cv-tag cv-success cv-block-hide" type="button"></button></div><div><span></span><span>Mooc课程</span></div><div title="5-9周(单),11-13周,15-17周 星期三 11-14节 汇文楼H1-103">· 5-9周(单)<br>· 11-13周<br>· 15-17周 星期三 11-14节 汇文楼H1-103<br></div><div class="cv-caption-text" id="202620271190060000139_capacity" ismainselectobject="1"><span style="color: #000;">主选</span>课容量:50/75 可选</div><div class="cv-caption-text"><a href="javascript:void(0)" class="zxdx-view" index="27">主选对象</a><span remote-view="">&nbsp;&nbsp;是否远程互动教学：否</span></div><div class="cv-caption-red" title="5学分校内MOOC课程，预计17周结课，有线下见面课，考核方式为线上+线下。UOOC平台学习网址：uooc.net.cn， 或点击校内网下方—UOOC课程平台登录。教务系统与UOOC平台双选才能修学分。
+本课程是国家级一流线上线下混合式课程。">选课说明：5学分校内MOOC课程，预计17周结课，...</div><div class="cv-caption-text"><button class="cv-btn cv-tag cv-delete-volunteer cv-block-hide" type="button" tcid="202620271190060000139" style="margin-left:0px">退选</button></div><div><img class="collection-img" type="nocollection" tcid="202620271190060000139" coursenumber="1900600001" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/nocollection.png" style="width:20px;height:20px"></div></div><div class="cv-operate"><div>确认选择？</div><div style="padding-top: 10px;"><button class="cv-btn cv-btn-chose" tcid="202620271190060000139" hastest="0">选择</button><button class="cv-btn cv-btn-cancel">取消</button></div></div></div></section></div>
+    
+        <div class="cv-row cv-active" coursenumber="1300680002" index="1" ischoose="1">
+            <div class="cv-num">1300680002  <span class="cv-detail" data-num="1300680002">课程详情</span></div>
+			<div class="cv-courseTotalNumber">13006800</div>
+            <div class="cv-course">线性代数</div>
+            <div class="cv-class">8</div>
+            <div class="cv-type">专业核心课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">电子与信息工程学院</div>
+            <div class="cv-credit-type-col">理科学分</div>
+            <div class="cv-credit-col">4</div>
+        </div>
+    
+        <div class="cv-row cv-active" coursenumber="5201890010" index="2" ischoose="1">
+            <div class="cv-num">5201890010  <span class="cv-detail" data-num="5201890010">课程详情</span></div>
+			<div class="cv-courseTotalNumber"></div>
+            <div class="cv-course">大学英语（1）</div>
+            <div class="cv-class">43</div>
+            <div class="cv-type">基本通识课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">大学英语教学部</div>
+            <div class="cv-credit-type-col">文科学分</div>
+            <div class="cv-credit-col">4</div>
+        </div>
+    
+        <div class="cv-row " coursenumber="3401000001" index="3" ischoose="0">
+            <div class="cv-num">3401000001  <span class="cv-detail" data-num="3401000001">课程详情</span></div>
+			<div class="cv-courseTotalNumber"></div>
+            <div class="cv-course">大学生心理健康</div>
+            <div class="cv-class">15</div>
+            <div class="cv-type">公共必修课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">心理学院</div>
+            <div class="cv-credit-type-col">文科学分</div>
+            <div class="cv-credit-col">2</div>
+        </div>
+    
+        <div class="cv-row cv-active" coursenumber="9901860008" index="4" ischoose="1">
+            <div class="cv-num">9901860008  <span class="cv-detail" data-num="9901860008">课程详情</span></div>
+			<div class="cv-courseTotalNumber"></div>
+            <div class="cv-course">大学生国家安全教育</div>
+            <div class="cv-class">1</div>
+            <div class="cv-type">公共必修课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">MOOC</div>
+            <div class="cv-credit-type-col">无</div>
+            <div class="cv-credit-col">1</div>
+        </div>
+    
+        <div class="cv-row cv-active" coursenumber="5001990002" index="5" ischoose="1">
+            <div class="cv-num">5001990002  <span class="cv-detail" data-num="5001990002">课程详情</span></div>
+			<div class="cv-courseTotalNumber"></div>
+            <div class="cv-course">思想道德与法治</div>
+            <div class="cv-class">6</div>
+            <div class="cv-type">基本通识课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">马克思主义学院</div>
+            <div class="cv-credit-type-col">文科学分</div>
+            <div class="cv-credit-col">2.5</div>
+        </div>
+    
+        <div class="cv-row cv-active" coursenumber="1300050010" index="6" ischoose="1">
+            <div class="cv-num">1300050010  <span class="cv-detail" data-num="1300050010">课程详情</span></div>
+			<div class="cv-courseTotalNumber">13000500</div>
+            <div class="cv-course">C程序设计</div>
+            <div class="cv-class">2</div>
+            <div class="cv-type">专业核心课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">电子与信息工程学院</div>
+            <div class="cv-credit-type-col">无</div>
+            <div class="cv-credit-col">3</div>
+        </div>
+    
+        <div class="cv-row cv-active" coursenumber="1300860011" index="7" ischoose="1">
+            <div class="cv-num">1300860011  <span class="cv-detail" data-num="1300860011">课程详情</span></div>
+			<div class="cv-courseTotalNumber">13008600</div>
+            <div class="cv-course">大学计算机</div>
+            <div class="cv-class">8</div>
+            <div class="cv-type">基本通识课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">电子与信息工程学院</div>
+            <div class="cv-credit-type-col">理科学分</div>
+            <div class="cv-credit-col">3</div>
+        </div>
+    
+        <div class="cv-row cv-active" coursenumber="2801000052" index="8" ischoose="1">
+            <div class="cv-num">2801000052  <span class="cv-detail" data-num="2801000052">课程详情</span></div>
+			<div class="cv-courseTotalNumber"></div>
+            <div class="cv-course">电子与信息工程（新生）导论</div>
+            <div class="cv-class">8</div>
+            <div class="cv-type">专业核心课</div>
+            <div class="cv-nature">必修</div>
+            <div class="cv-department-col">电子与信息工程学院</div>
+            <div class="cv-credit-type-col">理科学分</div>
+            <div class="cv-credit-col">1</div>
+        </div>
+    
+        <div class="cv-row " coursenumber="9901760001" index="9" ischoose="0">
+            <div class="cv-num">9901760001  <span class="cv-detail" data-num="9901760001">课程详情</span></div>
+			<div class="cv-courseTotalNumber"></div>
+            <div class="cv-course">艺术的星空：艺术美学十二讲</div>
+            <div class="cv-class">1</div>
+            <div class="cv-type">公共选修课</div>
+            <div class="cv-nature">选修</div>
+            <div class="cv-department-col">MOOC</div>
+            <div class="cv-credit-type-col">文科学分</div>
+            <div class="cv-credit-col">2</div>
+        </div>
+    
+            </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="programUp">上一页</a>
+                共<span id="programTotalPage">2</span>页数据，当前第<span id="programPageNumber">1</span>页。
+                <a class="" href="javascript:void(0);" id="programDown">下一页</a>
+            </div>
+        </div>
+    </div>
+            </div>
+        </article>
+
+        <!-- 方案外课程模块 -->
+        <article id="cvUnProgramCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <header class="cv-course-header cv-clearfix-child">
+                <div class="cv-pull-left">
+                    <h3 class="cv-mb-8" id="unProgramTitle">方案外选课</h3>
+                    <span class="cv-caption-text" id="unProgramSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="unProgramSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="FAWKC" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否冲突 : </label>
+                        <select class="cv-search-input search_sfct" id="unprogram_sfct" coursetype="FAWKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">冲突</option>
+                            <option value="0">不冲突</option>
+                        </select>
+                        <label class="cv-search-label">是否已满 : </label>
+                        <select class="cv-search-input search_sfym" id="unprogram_sfym" coursetype="FAWKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">已满</option>
+                            <option value="0">未满</option>
+                        </select>
+                        <label class="cv-search-label">是否Mooc : </label>
+                        <select class="cv-search-input search_sfmooc" id="unprogram_sfmooc" coursetype="FAWKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">是</option>
+                            <option value="0">否</option>
+                        </select>
+                        <label class="cv-search-label">课程学分: </label>
+                       	<input class="cv-search-input search_xkxf" id="unprogram_xkxf" placeholder="请输入课程学分" type="text" coursetype="FAWKC">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">课程性质 : </label>
+                        <select class="cv-search-input search_kcxz" id="unprogram_kcxz" coursetype="FAWKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">必修</option><option value="02">选修</option></select>
+                        <label class="cv-search-label">课程类别 : </label>
+                        <select class="cv-search-input search_kclb" id="unprogram_kclb" coursetype="FAWKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">基本通识课</option><option value="08">专业核心课</option><option value="09">专业选修课</option><option value="11">公共选修课</option><option value="12">公共必修课</option><option value="14">综合选修课</option></select>
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="unprogram_kkdw" coursetype="FAWKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="unprogram_skxq" coursetype="FAWKC">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="unprogram_ksjc" coursetype="FAWKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="unprogram_jsjc" coursetype="FAWKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">文 / 理 : </label>
+                        <select class="cv-search-input search_xflb" id="unprogram_xflb" coursetype="FAWKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">文科学分</option><option value="02">理科学分</option><option value="03">无</option></select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+                        <select class="cv-search-input search_remote" id="unprogram_remote" coursetype="FAWKC">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+						<label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="unprogram_kczh" placeholder="请输入课程总号" type="text" coursetype="FAWKC">
+                    </div>
+                </div>
+            </header>
+
+            <div id="cvUnProgramExpertMode" class="cv-expert-mode">
+                <div id="cvCanSelectUnProgramCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!--公选课模块-->
+        <article id="cvPublicCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <!--头部-->
+            <header class="cv-course-header cv-clearfix-child">
+                <div class="cv-pull-left">
+                    <!--标题-->
+                    <h3 class="cv-mb-8" id="publicTitle">公选课</h3>
+                    <!--说明-->
+                    <span class="cv-caption-text" id="publicSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="publicSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="XGXK" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否冲突 : </label>
+                        <select class="cv-search-input search_sfct" id="public_sfct" coursetype="XGXK">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">冲突</option>
+                            <option value="0">不冲突</option>
+                        </select>
+                        <label class="cv-search-label">是否已满 : </label>
+                        <select class="cv-search-input search_sfym" id="public_sfym" coursetype="XGXK">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">已满</option>
+                            <option value="0">未满</option>
+                        </select>
+                        <label class="cv-search-label">是否Mooc : </label>
+                        <select class="cv-search-input search_sfmooc" id="public_sfmooc" coursetype="XGXK">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">是</option>
+                            <option value="0">否</option>
+                        </select>
+                        <label class="cv-search-label">课程学分: </label>
+                        <input class="cv-search-input search_xkxf" id="public_xkxf" placeholder="请输入课程学分" type="text" coursetype="XGXK">   
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="public_kkdw" coursetype="XGXK">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select>
+                        <label class="cv-search-label">课程板块 : </label>
+                        <select class="cv-search-input search_course_section" id="course_section" coursetype="XGXK">
+                            <option value="" selected="selected">--请选择--</option>
+                        </select>                        
+                        <label class="cv-search-label" style="width:100px">扩展通识课类别 : </label>
+                        <select class="cv-search-input search_xgxklb" id="public_xgxklb" coursetype="XGXK">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="02">扩展通识课</option><option value="03">社会科学类</option><option value="04">自然科学类</option><option value="05">人文艺术类</option><option value="06">生命科学类</option><option value="07">创新创业类</option><option value="08">中华文化类</option></select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="public_skxq" coursetype="XGXK">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="public_ksjc" coursetype="XGXK">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="public_jsjc" coursetype="XGXK">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">文 / 理 : </label>
+                        <select class="cv-search-input search_xflb" id="public_xflb" coursetype="XGXK">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">文科学分</option><option value="02">理科学分</option><option value="03">无</option></select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+                        <select class="cv-search-input search_remote" id="public_remote" coursetype="XGXK">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+						<label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="public_kczh" placeholder="请输入课程总号" type="text" coursetype="XGXK">
+                    </div>        
+                </div>
+            </header>
+
+            <!--公共课列表-->
+            <div class="cv-public-course" cv-role="tabs">
+                <div id="cvCanSelectPublicCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!-- 重修模块 -->
+        <article id="cvRetakeCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <!--头部-->
+            <header class="cv-course-header cv-clearfix-child">
+               <div class="cv-pull-left">
+                    <!--标题-->
+                    <h3 class="cv-mb-8" id="retakeTitle">重修选课</h3>
+                    <!--说明-->
+                    <span class="cv-caption-text" id="retakeSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="retakeSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="CXKC" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否冲突 : </label>
+                        <select class="cv-search-input search_sfct" id="retake_sfct" coursetype="CXKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">冲突</option>
+                            <option value="0">不冲突</option>
+                        </select>
+                        <label class="cv-search-label">是否已满 : </label>
+                        <select class="cv-search-input search_sfym" id="retake_sfym" coursetype="CXKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">已满</option>
+                            <option value="0">未满</option>
+                        </select>
+                        <label class="cv-search-label">是否Mooc : </label>
+                        <select class="cv-search-input search_sfmooc" id="retake_sfmooc" coursetype="CXKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">是</option>
+                            <option value="0">否</option>
+                        </select> 
+                        <label class="cv-search-label">课程学分: </label>
+                        <input class="cv-search-input search_xkxf" id="retake_xkxf" placeholder="请输入课程学分" type="text" coursetype="CXKC"> 
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">课程性质 : </label>
+                        <select class="cv-search-input search_kcxz" id="retake_kcxz" coursetype="CXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">必修</option><option value="02">选修</option></select>
+                        <label class="cv-search-label">课程类别 : </label>
+                        <select class="cv-search-input search_kclb" id="retake_kclb" coursetype="CXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">基本通识课</option><option value="08">专业核心课</option><option value="09">专业选修课</option><option value="11">公共选修课</option><option value="12">公共必修课</option><option value="14">综合选修课</option></select>
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="retake_kkdw" coursetype="CXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select> 
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="retake_skxq" coursetype="CXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="retake_ksjc" coursetype="CXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="retake_jsjc" coursetype="CXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">文 / 理 : </label>
+                        <select class="cv-search-input search_xflb" id="retake_xflb" coursetype="CXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">文科学分</option><option value="02">理科学分</option><option value="03">无</option></select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+                        <select class="cv-search-input search_remote" id="retake_remote" coursetype="CXKC">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+						<label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="retake_kczh" placeholder="请输入课程总号" type="text" coursetype="CXKC">
+                    </div>
+                </div>
+            </header>
+
+            <!--重修课列表-->
+            <div class="cv-public-course" cv-role="tabs">
+                <div id="cvCanSelectRetakeCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!-- MOOC模块 -->
+        <article id="cvMoocCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <!--头部-->
+            <header class="cv-course-header cv-clearfix-child">
+               <div class="cv-pull-left">
+                    <!--标题-->
+                    <h3 class="cv-mb-8" id="moocTitle">MOOC选课</h3>
+                    <!--说明-->
+                    <span class="cv-caption-text" id="moocSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="moocSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="MOOC" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否冲突 : </label>
+                        <select class="cv-search-input search_sfct" id="mooc_sfct" coursetype="MOOC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">冲突</option>
+                            <option value="0">不冲突</option>
+                        </select>
+                        <label class="cv-search-label">是否已满 : </label>
+                        <select class="cv-search-input search_sfym" id="mooc_sfym" coursetype="MOOC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">已满</option>
+                            <option value="0">未满</option>
+                        </select>
+                        <label class="cv-search-label">文 / 理 : </label>
+                        <select class="cv-search-input search_xflb" id="mooc_xflb" coursetype="MOOC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">文科学分</option><option value="02">理科学分</option><option value="03">无</option></select>
+                        <label class="cv-search-label">课程学分: </label>
+                        <input class="cv-search-input search_xkxf" id="mooc_xkxf" placeholder="请输入课程学分" type="text" coursetype="MOOC">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">课程性质 : </label>
+                        <select class="cv-search-input search_kcxz" id="mooc_kcxz" coursetype="MOOC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">必修</option><option value="02">选修</option></select>
+                        <label class="cv-search-label">课程类别 : </label>
+                        <select class="cv-search-input search_kclb" id="mooc_kclb" coursetype="MOOC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">基本通识课</option><option value="08">专业核心课</option><option value="09">专业选修课</option><option value="11">公共选修课</option><option value="12">公共必修课</option><option value="14">综合选修课</option></select>
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="mooc_kkdw" coursetype="MOOC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+                        <select class="cv-search-input search_remote" id="mooc_remote" coursetype="MOOC">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="mooc_skxq" coursetype="MOOC">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="mooc_ksjc" coursetype="MOOC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="mooc_jsjc" coursetype="MOOC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="mooc_kczh" placeholder="请输入课程总号" type="text" coursetype="MOOC">
+                    </div>
+                </div>
+            </header>
+
+            <!--MOOC列表-->
+            <div class="cv-public-course" cv-role="tabs">
+                <div id="cvCanSelectMoocCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!-- 体育课模块 -->
+        <article id="cvSportCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <!--头部-->
+            <header class="cv-course-header cv-clearfix-child">
+                <div class="cv-pull-left">
+                    <!--标题-->
+                    <h3 class="cv-mb-8" id="sportTitle">体育选课</h3>
+                    <!--说明-->
+                    <span class="cv-caption-text" id="sportSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="sportSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="TYKC" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否冲突 : </label>
+                        <select class="cv-search-input search_sfct" id="sport_sfct" coursetype="TYKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">冲突</option>
+                            <option value="0">不冲突</option>
+                        </select>
+                        <label class="cv-search-label">是否已满 : </label>
+                        <select class="cv-search-input search_sfym" id="sport_sfym" coursetype="TYKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">已满</option>
+                            <option value="0">未满</option>
+                        </select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+						<select class="cv-search-input search_remote" id="sport_remote" coursetype="TYKC">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+                        <label class="cv-search-label">课程学分: </label>
+                        <input class="cv-search-input search_xkxf" id="sport_xkxf" placeholder="请输入课程学分" type="text" coursetype="TYKC">  
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">课程性质 : </label>
+                        <select class="cv-search-input search_kcxz" id="sport_kcxz" coursetype="TYKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">必修</option><option value="02">选修</option></select>
+                        <label class="cv-search-label">课程类别 : </label>
+                        <select class="cv-search-input search_kclb" id="sport_kclb" coursetype="TYKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">基本通识课</option><option value="08">专业核心课</option><option value="09">专业选修课</option><option value="11">公共选修课</option><option value="12">公共必修课</option><option value="14">综合选修课</option></select>
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="sport_kkdw" coursetype="TYKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select> 
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="sport_skxq" coursetype="TYKC">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="sport_ksjc" coursetype="TYKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="sport_jsjc" coursetype="TYKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="sport_kczh" placeholder="请输入课程总号" type="text" coursetype="TYKC">
+                    </div>
+                </div>
+            </header>    
+
+            <!--体育课列表-->
+            <div class="cv-public-course" cv-role="tabs">
+                <div id="cvCanSelectSportCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!-- 辅修课模块 -->
+        <article id="cvMinorCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <!--头部-->
+            <header class="cv-course-header cv-clearfix-child">
+                <div class="cv-pull-left">
+                    <!--标题-->
+                    <h3 class="cv-mb-8" id="minorTitle">辅修选课</h3>
+                    <!--说明-->
+                    <span class="cv-caption-text" id="minorSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="minorSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="FXKC" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否冲突 : </label>
+                        <select class="cv-search-input search_sfct" id="minor_sfct" coursetype="FXKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">冲突</option>
+                            <option value="0">不冲突</option>
+                        </select>
+                        <label class="cv-search-label">是否已满 : </label>
+                        <select class="cv-search-input search_sfym" id="minor_sfym" coursetype="FXKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">已满</option>
+                            <option value="0">未满</option>
+                        </select>
+                        <label class="cv-search-label">是否Mooc : </label>
+                        <select class="cv-search-input search_sfmooc" id="minor_sfmooc" coursetype="FXKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">是</option>
+                            <option value="0">否</option>
+                        </select>
+                        <label class="cv-search-label">课程学分: </label>
+                        <input class="cv-search-input search_xkxf" id="minor_xkxf" placeholder="请输入课程学分" type="text" coursetype="FXKC">  
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">课程性质 : </label>
+                        <select class="cv-search-input search_kcxz" id="minor_kcxz" coursetype="FXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">必修</option><option value="02">选修</option></select>
+                        <label class="cv-search-label">课程类别 : </label>
+                        <select class="cv-search-input search_kclb" id="minor_kclb" coursetype="FXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">基本通识课</option><option value="08">专业核心课</option><option value="09">专业选修课</option><option value="11">公共选修课</option><option value="12">公共必修课</option><option value="14">综合选修课</option></select>
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="minor_kkdw" coursetype="FXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+						<select class="cv-search-input search_remote" id="minor_remote" coursetype="FXKC">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="minor_skxq" coursetype="FXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="minor_ksjc" coursetype="FXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="minor_jsjc" coursetype="FXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="minor_kczh" placeholder="请输入课程总号" type="text" coursetype="FXKC">
+                    </div>
+                </div>
+            </header>
+
+            <!--辅修课列表-->
+            <div class="cv-minor-course" cv-role="tabs">
+                <div id="cvCanSelectMinorCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!--全校课程模块-->
+        <article id="cvSchoolCourse" class="cv-block-hide cv-pb-38" style="min-height: 610px;">
+            <!--头部-->
+            <header class="cv-course-header cv-clearfix-child">
+                <div class="cv-pull-left">
+                    <!--标题-->
+                    <h3 class="cv-mb-8" id="schoolTitle">选课校验</h3>
+                    <!--说明-->
+                    <span class="cv-caption-text" id="schoolSpan"></span>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <input id="schoolSearch" class="cv-search-input" placeholder="请输入关键字" type="text" coursetype="QXKC" style="width:600px">
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label" style="width:100px">扩展通识课类别 : </label>
+                        <select class="cv-search-input search_xgxklb" id="school_xgxklb" coursetype="QXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="02">扩展通识课</option><option value="03">社会科学类</option><option value="04">自然科学类</option><option value="05">人文艺术类</option><option value="06">生命科学类</option><option value="07">创新创业类</option><option value="08">中华文化类</option></select> 
+                        <label class="cv-search-label">开课单位 : </label>
+                        <select class="cv-search-input search_kkdw" id="school_kkdw" coursetype="QXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">人文学院</option><option value="02">经济学院</option><option value="36">深圳南特金融科技学院</option><option value="38">数学科学学院</option><option value="03">法学院</option><option value="04">管理学院</option><option value="05">艺术学部</option><option value="07">外国语学院</option><option value="08">传播学院</option><option value="09">土木与交通工程学院</option><option value="10">建筑与城市规划学院</option><option value="11">机电与控制工程学院</option><option value="14">化学与环境工程学院</option><option value="15">计算机与软件学院</option><option value="20">材料学院</option><option value="22">医学部</option><option value="30">生命与海洋科学学院</option><option value="50">马克思主义学院</option><option value="52">大学英语教学部</option><option value="53">体育部</option><option value="54">图书馆</option><option value="56">学生部、武装部</option><option value="58">团委</option><option value="59">中国海外利益研究中心</option><option value="61">中国经济特区研究中心</option><option value="63">文化产业研究院</option><option value="64">高等研究院</option><option value="65">港澳基本法研究中心</option><option value="99">MOOC</option><option value="23">国际交流学院</option><option value="25">政府管理学院</option><option value="27">物理与光电工程学院</option><option value="28">电子与信息工程学院</option><option value="33">体育学院</option><option value="34">心理学院</option><option value="35">教育学部</option><option value="67">大湾区国际创新学院</option><option value="39">安全保卫部</option><option value="888888">测试学院(勿用)</option><option value="68">人工智能学院</option><option value="41">集成电路学院</option><option value="01014010">民族学生工作办</option><option value="04004000">美学与文艺批评研究院</option><option value="29">微众银行金融科技学院</option></select> 
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">是否Mooc : </label>
+                        <select class="cv-search-input search_sfmooc" id="school_sfmooc" coursetype="QXKC">
+                            <option value="2" selected="selected">--请选择--</option>
+                            <option value="1">是</option>
+                            <option value="0">否</option>
+                        </select>
+                        <label class="cv-search-label">文 / 理 : </label>
+                        <select class="cv-search-input search_xflb" id="school_xflb" coursetype="QXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="01">文科学分</option><option value="02">理科学分</option><option value="03">无</option></select>
+                        <label class="cv-search-label">是否远程互动教学: </label>
+						<select class="cv-search-input search_remote" id="school_remote" coursetype="QXKC">
+							<option value="2" selected="selected">--请选择--</option>
+							<option value="1">是</option>
+							<option value="0">否</option>
+						</select>
+                    </div>
+                    <div style="padding-top:5px;padding-bottom:5px">
+                        <label class="cv-search-label">星期 : </label>
+                        <select class="cv-search-input search_skxq" id="school_skxq" coursetype="QXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                            <option value="1">星期一</option>
+                            <option value="2">星期二</option>
+                            <option value="3">星期三</option>
+                            <option value="4">星期四</option>
+                            <option value="5">星期五</option>
+                            <option value="6">星期六</option>
+                            <option value="7">星期七</option>
+                        </select>
+                        <label class="cv-search-label">开始节次 : </label>
+                        <select class="cv-search-input search_ksjc" id="school_ksjc" coursetype="QXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">结束节次 : </label>
+                        <select class="cv-search-input search_jsjc" id="school_jsjc" coursetype="QXKC">
+                            <option value="" selected="selected">--请选择--</option>
+                        <option value="1">第1节</option><option value="2">第2节</option><option value="3">第3节</option><option value="4">第4节</option><option value="5">第5节</option><option value="6">第6节</option><option value="7">第7节</option><option value="8">第8节</option><option value="9">第9节</option><option value="10">第10节</option><option value="11">第11节</option><option value="12">第12节</option><option value="13">第13节</option><option value="14">第14节</option></select>
+                        <label class="cv-search-label">课程总号: </label>
+                        <input class="cv-search-input search_kczh" id="school_kczh" placeholder="请输入课程总号" type="text" coursetype="QXKC">
+                    </div>
+                </div>
+            </header>
+
+            <!--全校课程列表-->
+            <div class="cv-school-course" cv-role="tabs">
+                <div id="cvCanSelectSchoolCourse" class="cv-tab-pane cv-active"></div>
+            </div>
+        </article>
+
+        <!--侧边栏-->
+        <aside id="cvAside" class="cv-aside">
+            <!--mini条-->
+            <div class="cv-mini">
+                <div class="cv-icons">
+                    <!--用户信息-->
+                    <div class="cv-user-icon cvMiniIconFlag" type="user" title="我的信息">
+                        <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/user-icon.png">
+                    </div>
+                    <!--课表-->
+                    <div class="cv-course-icon cvMiniIconFlag" type="course" title="我的课表">
+                        <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/course-icon.png">
+                    </div>
+                    <!--落选课程-->
+                    <div class="cv-unsuccessful-icon cvMiniIconFlag" type="unsuccessful" title="落选课程">
+                        <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/unsuccessful-icon.png">
+                    </div>
+                    <!--收藏的课程-->
+                    <div class="cv-collection-icon cvMiniIconFlag" type="collection" title="收藏的课程">
+                        <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/collected.png">
+                    </div>
+                    <!--已选志愿/退课日志-->
+                    <div class="cv-choice-icon cv-active cvMiniIconFlag" type="grablessons">
+                        <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/choice-icon.png">
+                        <div class="cv-num" id="selectcourse_num">11</div>                
+                        <div class="cv-text" type="grablessons">已选课程</div>                        
+                    </div>
+                </div>
+
+                <!--回到顶部按钮-->
+                <div class="cv-top cvMiniIconFlag" type="top">TOP</div>
+            </div>
+
+            <!-- 侧边栏内容 -->
+            <div class="cv-content">
+                <!-- 学生信息 -->
+                <div id="cvAsideUser" class="cv-user"></div>
+                <!--课表模块-->
+                <div id="cvAsideCourse" class="cv-aside-course"></div>
+                <!--落选课程-->
+                <div id="cvUnsuccessfulCourse" class="cv-aside-selected-course" style="height:100%"></div>
+                <!--已选课程模块-->
+                <div id="cvAsideChoice" class="cv-aside-choice cv-active"></div>
+            </div>
+        </aside>
+
+        
+        <!--页脚-->
+        <footer class="cv-page-footer">
+            <div id="ecDiv"></div>
+            <div id="cDiv"></div>
+            <div class="cv-mb-38 cv-caption-text" id="authorDiv"></div>
+            <div class="cv-copyright">版权信息：© 2016 江苏金智教育信息股份有限公司 苏ICP备10204514号<span id="noline-tip">（当前选课在线人数 123人）</span></div>
+            <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/common/footer-bg.png">
+        </footer>
+
+        <div class="cv-dialog" style="display: none">
+            <div>
+                <div class="cv-body">
+                    <img class="cv-mb-16" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/dialog-icon.png">
+                    <h2 class="cv-mb-8">确认退选</h2>
+                    <div class="cv-mb-8">《<span>数字媒体装置艺术构成</span>》</div>
+                    <div>这门课程吗？</div>
+                </div>
+                <div class="cv-foot">
+                    <div class="cv-sure">退选</div>
+                    <div class="cv-cancel">取消</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引导页 -->
+    <div class="jszp" style="display:none;">
+        <div class="step1">
+            <div>
+              <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/01.png">  
+            </div>
+            <div class="btns">
+                <div class="cv-btn">我知道了</div>
+            </div>
+        </div>
+        <div class="step2" style="display: none;">
+            <div>
+              <img src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/images/curriculaVariable/02.png">  
+            </div>
+            <div class="btns">
+                <div class="cv-btn">我知道了</div>
+            </div>
+        </div>
+    </div>
+
+	<!--推荐选课的专家模式列表外框的模板-->
+	<script type="text/template" id="tpl-recommend-list">
+	    <div class="cv-list recommend-list">
+	        <div class="cv-head">
+                <div class="cv-normal cv-num">课程号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-course">课程名称</div>
+                <div class="cv-sort cv-class" id="recommendSort">可选班级数</div>
+                <div class="cv-normal cv-type">课程类别</div>
+                <div class="cv-normal cv-nature">课程性质</div>
+                <div class="cv-normal cv-department-col">开课单位</div>
+                <div class="cv-normal cv-credit-type-col">文/理</div>
+                <div class="cv-normal cv-credit-col">学分</div>
+	        </div>
+	        <div class="cv-body" id="recommendBody">
+	            @body
+	        </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="recommendUp">上一页</a>
+                共<span id="recommendTotalPage">@totalPage</span>页数据，当前第<span id="recommendPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="recommendDown">下一页</a>
+            </div>
+	    </div>
+	</script>
+	<!--推荐选课的专家模式列表每行的内容模板-->
+	<script type="text/template" id="tpl-recommend-list-row">
+	    <div class="cv-row @selectedClass" coursenumber="@courseNumber" index="@index" isChoose="@isChoose">
+	        <div class="cv-num">@number  <span class="cv-detail" data-num="@jxbNumber">课程详情</span></div>
+            <div class="cv-courseTotalNumber">@courseTotalNumber</div>
+			<div class="cv-course">@title</div>
+            <div class="cv-class">@class</div>
+            <div class="cv-type">@type</div>
+            <div class="cv-nature">@nature</div>
+            <div class="cv-department-col">@department</div>
+            <div class="cv-credit-type-col">@creditType</div>
+            <div class="cv-credit-col">@credit</div>
+	    </div>
+	</script>
+
+    <!--辅修选课的列表外框的模板-->
+    <script type="text/template" id="tpl-minor-list">
+        <div class="cv-list minor-list">
+            <div class="cv-head">
+                <div class="cv-normal cv-num">课程号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-course">课程名称</div>
+                <div class="cv-sort cv-class" id="minorSort">可选班级数</div>
+                <div class="cv-normal cv-type">课程类别</div>
+                <div class="cv-normal cv-nature">课程性质</div>
+                <div class="cv-normal cv-department-col">开课单位</div>
+                <div class="cv-normal cv-credit-col">学分</div>
+            </div>
+            <div class="cv-body" id="minorBody">
+                @body
+            </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="minorUp">上一页</a>
+                共<span id="minorTotalPage">@totalPage</span>页数据，当前第<span id="minorPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="minorDown">下一页</a>
+            </div>
+        </div>
+    </script>
+    <!--辅修选课的列表每行的内容模板-->
+    <script type="text/template" id="tpl-minor-list-row">
+        <div class="cv-row @selectedClass" coursenumber="@courseNumber" index="@index" isChoose="@isChoose">
+            <div class="cv-num">@number  <span class="cv-detail" data-num="@jxbNumber">课程详情</span></div>
+			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+            <div class="cv-course">@title</div>
+            <div class="cv-class">@class</div>
+            <div class="cv-type">@type</div>
+            <div class="cv-nature">@nature</div>
+            <div class="cv-department-col">@department</div>
+            <div class="cv-credit-col">@credit</div>
+        </div>
+    </script>
+
+    <!--方案内选课列表外框的模板 -->
+    <script type="text/template" id="tpl-program-list">
+        <div class="cv-list program-list">
+            <div class="cv-head">
+                <div class="cv-normal cv-num">课程号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-course">课程名称</div>
+                <div class="cv-sort cv-class" id="programSort">可选班级数</div>
+                <div class="cv-normal cv-type">课程类别</div>
+                <div class="cv-normal cv-nature">课程性质</div>
+                <div class="cv-normal cv-department-col">开课单位</div>
+                <div class="cv-normal cv-credit-type-col">文/理</div>
+                <div class="cv-normal cv-credit-col">学分</div>
+            </div>
+            <div class="cv-body" id="programBody">
+                @body
+            </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="programUp">上一页</a>
+                共<span id="programTotalPage">@totalPage</span>页数据，当前第<span id="programPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="programDown">下一页</a>
+            </div>
+        </div>
+    </script>
+    <!--方案内选课列表每行的内容模板-->
+    <script type="text/template" id="tpl-program-list-row">
+        <div class="cv-row @selectedClass" coursenumber="@courseNumber" index="@index" isChoose="@isChoose">
+            <div class="cv-num">@number  <span class="cv-detail" data-num="@jxbNumber">课程详情</span></div>
+			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+            <div class="cv-course">@title</div>
+            <div class="cv-class">@class</div>
+            <div class="cv-type">@type</div>
+            <div class="cv-nature">@nature</div>
+            <div class="cv-department-col">@department</div>
+            <div class="cv-credit-type-col">@creditType</div>
+            <div class="cv-credit-col">@credit</div>
+        </div>
+    </script>
+
+    <!--方案外选课列表外框的模板 -->
+    <script type="text/template" id="tpl-unprogram-list">
+        <div class="cv-list unprogram-list">
+            <div class="cv-head">
+                <div class="cv-normal cv-num">课程号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-course">课程名称</div>
+                <div class="cv-sort cv-class" id="unProgramSort">可选班级数</div>
+                <div class="cv-normal cv-type">课程类别</div>
+                <div class="cv-normal cv-nature">课程性质</div>
+                <div class="cv-normal cv-department-col">开课单位</div>
+                <div class="cv-normal cv-credit-type-col">文/理</div>
+                <div class="cv-normal cv-credit-col">学分</div>
+            </div>
+            <div class="cv-body" id="unProgramBody">
+                @body
+            </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="unProgramUp">上一页</a>
+                共<span id="unProgramTotalPage">@totalPage</span>页数据，当前第<span id="unProgramPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="unProgramDown">下一页</a>
+            </div>
+        </div>
+    </script>
+    <!--方案外选课列表每行的内容模板-->
+    <script type="text/template" id="tpl-unprogram-list-row">
+        <div class="cv-row @selectedClass" coursenumber="@courseNumber" index="@index" isChoose="@isChoose">
+            <div class="cv-num">@number  <span class="cv-detail" data-num="@jxbNumber">课程详情</span></div>
+			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+            <div class="cv-course">@title</div>
+            <div class="cv-class">@class</div>
+            <div class="cv-type">@type</div>
+            <div class="cv-nature">@nature</div>
+            <div class="cv-department-col">@department</div>
+            <div class="cv-credit-type-col">@creditType</div>
+            <div class="cv-credit-col">@credit</div>
+        </div>
+    </script>
+
+    <!--重修选课列表外框的模板 -->
+    <script type="text/template" id="tpl-retake-list">
+        <div class="cv-list retake-list">
+            <div class="cv-head">
+                <div class="cv-normal cv-num">课程号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-course">课程名称</div>
+                <div class="cv-sort cv-class" id="retakeSort">可选班级数</div>
+                <div class="cv-normal cv-type">课程类别</div>
+                <div class="cv-normal cv-nature">课程性质</div>
+                <div class="cv-normal cv-department-col">开课单位</div>
+                <div class="cv-normal cv-credit-type-col">文/理</div>
+                <div class="cv-normal cv-credit-col">学分</div>
+            </div>
+            <div class="cv-body" id="retakeBody">
+                @body
+            </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="retakeUp">上一页</a>
+                共<span id="retakeTotalPage">@totalPage</span>页数据，当前第<span id="retakePageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="retakeDown">下一页</a>
+            </div>
+        </div>
+    </script>
+    <!--重修选课列表每行的内容模板-->
+    <script type="text/template" id="tpl-retake-list-row">
+        <div class="cv-row @selectedClass" coursenumber="@courseNumber" index="@index" isChoose="@isChoose">
+            <div class="cv-num">@number  <span class="cv-detail" data-num="@jxbNumber">课程详情</span></div>
+			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+            <div class="cv-course">@title</div>
+            <div class="cv-class">@class</div>
+            <div class="cv-type">@type</div>
+            <div class="cv-nature">@nature</div>
+            <div class="cv-department-col">@department</div>
+            <div class="cv-credit-type-col">@creditType</div>
+            <div class="cv-credit-col">@credit</div>
+        </div>
+    </script>
+
+    <!--MOOC选课列表外框的模板 -->
+    <script type="text/template" id="tpl-mooc-list">
+		<div class="cv-list mooc-list">
+	        <div class="cv-head" style="height:48px;padding:5px 0">
+	            <div class="cv-normal cv-number-col">课程编号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+	            <div class="cv-normal cv-title-col">课程名称</div>
+	            <div class="cv-normal cv-teacher-col">上课教师</div>
+	            <div class="cv-normal cv-time-col">
+                    上课时间地点/选课说明
+                </div>
+	            <div class="cv-normal cv-capcity-col">课容量</div>
+	            <div class="cv-sort cv-firstVolunteer-col" id="publicSort">已选人数</div>
+	            <div class="cv-normal cv-type-col">校公选课<br>类别</div>
+                <div class="cv-normal cv-wl-col">文/理</div>
+	            <div class="cv-normal cv-credit-col">学分</div>
+				<div class="cv-normal cv-remote-col">是否远程互动教学</div>
+	            <div class="cv-normal cv-setting-col">操作</div>
+	        </div>
+	        <div class="cv-body" id="moocBody">
+	            @body
+	        </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="moocUp">上一页</a>
+                共<span id="moocTotalPage">@totalPage</span>页数据，当前第<span id="moocPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="moocDown">下一页</a>
+            </div>
+	    </div>
+    </script>
+    <!--MOOC选课列表每行的内容模板-->
+    <script type="text/template" id="tpl-mooc-list-row">
+		<div class="cv-row">
+	        <div class="cv-number-col" title="@numberTitle">
+				<a class="cv-detail" data-num="@courseNumber" href="javascript:void(0);">@number</a>
+			</div>
+			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+	        <div class="cv-title-col">@title</div>
+	        <div class="cv-teacher-col">@teacher</div>
+	        <div class="cv-time-col">
+                <span title="@timeTitle">@time</span>
+                <br/>
+                <span title="@extInfoTitle" class="@extInfoClass">@extInfo</span>
+            </div>
+	        <div class="cv-capcity-col">@capacity</div>
+	        <div class="cv-firstVolunteer-col">@firstVolunteer</div>
+	        <div class="cv-type-col">@type</div>
+            <div class="cv-wl-col">@creditType</div>
+	        <div class="cv-credit-col">@credit</div>
+			<div class="cv-remote-col">@remote</div>
+	        <div class="cv-setting-col @selectedClass">
+	            <button class="cv-btn cv-tag">@volunteerText</button>
+	            <a class="cv-choice @cv-disabled" canselect="@canSelect" number="@number" tcId="@tcId" hasTest="@hasTest" isFull="@isFull" isConflict="@isConflict" limitGender="@limitGender" capacityOfMale="@capacityOfMale" capacityOfFemale="@capacityOfFemale" numberOfMale="@numberOfMale" numberOfFemale="@numberOfFemale" href="#" @isDisabled>@selectCaption</a>
+	        </div>
+	    </div>
+    </script>
+
+    <!--体育选课列表外框的模板 -->
+    <script type="text/template" id="tpl-sport-list">
+        <div class="cv-list sport-list">
+            <div class="cv-head">
+                <div class="cv-normal cv-num">课程号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-course">课程名称</div>
+                <div class="cv-sort cv-class" id="sportSort">可选班级数</div>
+                <div class="cv-normal cv-type">课程类别</div>
+                <div class="cv-normal cv-nature">课程性质</div>
+                <div class="cv-normal cv-department-col">开课单位</div>
+                <div class="cv-normal cv-credit-type-col">文/理</div>
+                <div class="cv-normal cv-credit-col">学分</div>
+            </div>
+            <div class="cv-body" id="sportBody">
+                @body
+            </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="sportUp">上一页</a>
+                共<span id="sportTotalPage">@totalPage</span>页数据，当前第<span id="sportPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="sportDown">下一页</a>
+            </div>
+        </div>
+    </script>
+    <!--体育选课列表每行的内容模板-->
+    <script type="text/template" id="tpl-sport-list-row">
+        <div class="cv-row @selectedClass" coursenumber="@courseNumber" index="@index" isChoose="@isChoose">
+            <div class="cv-num">@number  <span class="cv-detail" data-num="@jxbNumber">课程详情</span></div>
+			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+            <div class="cv-course">@title</div>
+            <div class="cv-class">@class</div>
+            <div class="cv-type">@type</div>
+            <div class="cv-nature">@nature</div>
+            <div class="cv-department-col">@department</div>
+            <div class="cv-credit-type-col">@creditType</div>
+            <div class="cv-credit-col">@credit</div>
+        </div>
+    </script>
+
+	<!--公选课的列表外框的模板-->
+	<script type="text/template" id="tpl-public-list">
+	    <div class="cv-list public-list">
+	        <div class="cv-head" style="height:48px;padding:5px 0">
+	            <div class="cv-normal cv-number-col">课程编号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+	            <div class="cv-normal cv-title-col">课程名称</div>
+	            <div class="cv-normal cv-teacher-col">上课教师</div>
+	            <div class="cv-normal cv-time-col">
+                    上课时间地点/选课说明
+                </div>
+	            <div class="cv-normal cv-capcity-col">课容量</div>
+	            <div class="cv-sort cv-firstVolunteer-col" id="publicSort">已选人数</div>
+	            <div class="cv-normal cv-type-col">校公选课<br>类别</div>
+                <div class="cv-normal cv-wl-col">文/理</div>
+	            <div class="cv-normal cv-credit-col">学分</div>
+				<div class="cv-normal cv-remote-col">是否远程互动教学</div>
+	            <div class="cv-normal cv-setting-col">操作</div>
+	        </div>
+	        <div class="cv-body" id="publicBody">
+	            @body
+	        </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="publicUp">上一页</a>
+                共<span id="publicTotalPage">@totalPage</span>页数据，当前第<span id="publicPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="publicDown">下一页</a>
+            </div>
+	    </div>
+	</script>
+	<!--公选课的列表每行的内容模板-->
+	<script type="text/template" id="tpl-public-list-row">
+	    <div class="cv-row">
+	        <div class="cv-number-col" title="@numberTitle">
+				<a class="cv-detail" data-num="@courseNumber" href="javascript:void(0);">@number</a>
+				<div>
+					<a class="cv-detail" data-num="@courseNumber1" href="javascript:void(0);">课程详情</a>
+				</div>
+			</div>
+			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+	        <div class="cv-title-col">@title</div>
+	        <div class="cv-teacher-col">@teacher</div>
+	        <div class="cv-time-col">
+                <span title="@timeTitle">@time</span>
+                <br/>
+                <span title="@extInfoTitle" class="@extInfoClass">@extInfo</span>
+            </div>
+	        <div class="cv-capcity-col">@capacity</div>
+	        <div class="cv-firstVolunteer-col">@firstVolunteer</div>
+	        <div class="cv-type-col">@type</div>
+            <div class="cv-wl-col">@creditType</div>
+	        <div class="cv-credit-col">@credit</div>
+			<div class="cv-remote-col">@remote</div>
+	        <div class="cv-setting-col @selectedClass">
+	            <button class="cv-btn cv-tag">@volunteerText</button>
+	            <a class="cv-choice @cv-disabled" canselect="@canSelect" number="@number" tcId="@tcId" isFull="@isFull" isConflict="@isConflict" hasTest="@hasTest" limitGender="@limitGender" capacityOfMale="@capacityOfMale" capacityOfFemale="@capacityOfFemale" numberOfMale="@numberOfMale" numberOfFemale="@numberOfFemale" href="#" @isDisabled>@selectCaption</a>
+	        </div>
+	    </div>
+	</script>
+
+    <!-- 实验课程表格模板 -->
+    <script type="text/template" id="tpl-test-course-all">
+        <div class="table">
+            <h2>实验教学班</h2>
+            <p>该课程有实验内容，请同时选择实验教学班</p>
+            @table
+            <a class="cv-btn cv-btn-chose" href="#" id="testCourse_choice_btn">选择</a>
+        </div>
+    </script>
+    <script type="text/template" id="tpl-test-course-table">
+       <p>@theoryClassInfo</p>
+       <table class="test-course-table">
+           <thead>
+               <tr>
+                   <th style="width:10%">操作</th>
+                   <th style="width:10%">课序号</th>
+                   <th style="width:15%">上课教师</th>
+                   <th>时间地点</th>
+                   <th style="width:15%">已选人数</th>
+                   <th style="width:15%">课容量</th>                      
+               </tr>
+           </thead>
+           <tbody>@tbody</tbody>
+       </table>
+    </script>
+    <script type="text/template" id="tpl-test-course-table-row">
+        <tr>
+            <td><input type="radio" name="testCourse_radio_@index" value="@teachingClassId"></td>
+            <td><span>@courseIndex</span></td>
+            <td><span>@teacher</span></td>
+            <td><span>@teachingPlace</span></td>
+            <td><span>@numberOfFirstVolunteer</span></td>
+            <td><span>@remainingCapacity</span></td>
+        </tr>
+    </script>
+
+    <!--全校课程的列表外框的模板-->
+    <script type="text/template" id="tpl-school-list">
+        <div class="cv-list school-list">
+            <div class="cv-head cv-school" style="height:48px;padding:5px 0">
+				<div class="cv-normal cv-school-operate-col">操作</div>
+                <div class="cv-normal cv-school-number-col">课程编号</div>
+				<div class="cv-normal cv-courseTotalNumber">课程总号</div>
+                <div class="cv-normal cv-school-title-col">课程名称</div>
+                <div class="cv-normal cv-school-index-col">课序号</div>
+                <div class="cv-normal cv-school-department-col">开课单位</div>
+                <div class="cv-normal cv-school-credit-col">学分</div>
+                <div class="cv-normal cv-school-hours-col">学时</div>
+                <div class="cv-normal cv-school-teacher-col">上课教师</div>
+				<div class="cv-normal cv-school-remote-col">是否远程互动教学</div>
+            </div>
+            <div class="cv-body" id="schoolBody">
+                @body
+            </div>
+            <div class="cv-foot" style="padding-top:20px">
+                <a class="" href="javascript:void(0);" id="schoolUp">上一页</a>
+                共<span id="schoolTotalPage">@totalPage</span>页数据，当前第<span id="schoolPageNumber">@pageNumber</span>页。
+                <a class="" href="javascript:void(0);" id="schoolDown">下一页</a>
+            </div>
+        </div>
+    </script>
+    <!--全校课程的列表每行的内容模板-->
+    <script type="text/template" id="tpl-school-list-row">
+        <div class="cv-row">
+            <div class="cv-school-operate-col"><a href="javascript:void(0)" class="row-school-link" index="@jyindex">校验</a></div>
+            <div class="cv-school-number-col"><a href="javascript:void(0)" class="row-school-link" index="@index">@courseNumber</a></div>
+ 			<div class="cv-courseTotalNumber">@courseTotalNumber</div>
+            <div class="cv-school-title-col">@courseName</div>
+            <div class="cv-school-index-col">@courseIndex</div>
+            <div class="cv-school-department-col">@departmentName</div>
+            <div class="cv-school-credit-col">@credit</div>
+            <div class="cv-school-hours-col">@hours</div>
+            <div class="cv-school-teacher-col">@teacherName</div>
+			<div class="cv-school-remote-col">@remote</div>
+        </div>
+    </script>
+
+    <!-- 侧边栏学生信息模板 -->
+	<script type="text/template" id="tpl-stundent-information">        
+        <div class="cv-clearfix-child">
+            <!--用户头像-->
+            <div class="cv-user-info-img">
+                <img src="@headImageUrl">
+            </div>
+            <!--个人信息详情-->
+            <div class="cv-user-info-option">
+                <h5 class="cv-mb-8">
+                    欢迎你
+                    <span>@name</span>
+                </h5>
+                <div class="cv-mb-4">@college/@department</div>
+                <div>@grade</div>
+            </div>
+        </div>
+        <!--图表部分-->
+        <div class="cv-credit-chart">
+            <!--所修学分占比-->
+            <div>@getCreditProportion</div>
+            <!--图表初始化占位-->
+            <canvas id="cvCreditChart"></canvas>
+        </div>
+        <!--学分情况部分-->
+        <div class="cv-credit-info cv-clearfix-child cv-mb-8">
+            <div>
+                <div class="cv-credit-num">@totalCredit</div>
+                <div class="cv-credit-caption">总学分</div>
+                <div class="cv-credit-color cv-all"></div>
+            </div>
+            <div>
+                <div class="cv-credit-num">@needCredit</div>
+                <div class="cv-credit-caption">已选学分</div>
+                <div class="cv-credit-color cv-caption"></div>
+            </div>
+            <div>
+                <div class="cv-credit-num">@limitCredit</div>
+                <div class="cv-credit-caption">限制学分</div>
+                <div class="cv-credit-color cv-not"></div>
+            </div>
+        </div>
+        <!--进入选课按钮-->
+        <button class="cv-btn cv-ghost cv-mb-8 cv-select" type="button" id="changeCampus" code="@code">@campusName</button>
+	</script>
+
+    <!-- 侧边栏 - 学生落选结果 -->
+    <script type="text/template" id="tpl-stundent-unsuccessful">
+        <div style="height:100%"> 
+            <h5>落选课程</h5>
+            <div class="cv-list">
+                <div class="cv-head">
+                    <div class="cv-normal" style="width:20%">日期</div>
+                    <div class="cv-normal" style="width:40%">课程名称</div>
+                    <div class="cv-normal" style="width:20%">上课教师</div>
+                    <div class="cv-normal" style="width:20%">选课结果</div>
+                </div>
+                <div class="cv-body">
+                    @body
+                </div>
+            </div>    
+        </div>
+    </script>
+
+    <script type="text/template" id="tpl-stundent-unsuccessful-row">
+        <div class="cv-row">
+            <div class="cv-normal" style="width:20%">@date</div>
+            <div class="cv-normal" style="width:40%">@courseName</div>
+            <div class="cv-normal" style="width:20%">@teacherName</div>
+            <div class="cv-normal" style="width:20%">@result</div>
+        </div>
+    </script>
+
+    <script type="text/template" id="tpl-schoolcourse-view">
+        <div class="schoolcourse-view-table">
+			<h4>能否选课原因分析</h4>
+			<div>
+				@chooseBody
+			</div>
+			<h4>课程详情</h4>
+            <table class="table-all">
+                <tr>
+                    <td>开课单位</td>
+                    <td>@departmentName</td>
+                </tr>
+                <tr>
+                    <td>校区</td>
+                    <td class="cv-color-danger">@campusName</td>
+                </tr>
+                <tr>
+                    <td>课程类别</td>
+                    <td>@courseTypeName</td>
+                </tr>
+                <tr>
+                    <td>学分/学时</td>
+                    <td>@credit学分/@hours学时</td>
+                </tr>
+                <tr>
+                    <td>上课教师</td>
+                    <td>@teacherName</td>
+                </tr>
+                <tr>
+                    <td>上课时间地点</td>
+                    <td>@teachingPlace</td>
+                </tr>
+                <tr>
+                    <td>面向班级</td>
+                    <td>@scStr</td>
+                </tr>
+                <tr>
+                    <td>主选对象</td>
+                    <td>@msStr</td>
+                </tr>
+                <tr>
+                    <td>限制信息</td>
+                    <td>@lkStr</td>
+                </tr>
+                <tr>
+                    <td>重修选课限制</td>
+                    <td>@isRetakeClass</td>
+                </tr>
+            </table>
+        </div>
+    </script>
+
+    <script type="text/template" id="tpl-lcffsj-view">
+        <div class="lcffsjTip">
+			<span>距离选课开放时间还剩：</span>
+			<span class="lckfsjValue"></span>
+			<img class="lcffsjClose" src="@resUrl/public/images/common/icon-close.png">
+		</div>
+    </script>
+
+    <script type="text/javascript">
+        var BaseUrl = "http://bkxk.szu.edu.cn/xsxkapp";
+        var length = BaseUrl.length;
+        if(BaseUrl.indexOf(length - 1, length) == '/') {
+            BaseUrl = BaseUrl.substring(0, length - 1);
+        }
+
+        var loginType = 'ldap';
+        var casUrl = 'https://cas.seu.edu.cn/login';
+        var resUrl = 'http://xkres.szu.edu.cn/products/jwfw/xsxkapp';
+    </script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/plugins/jquery-2.1.1.min.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/jqxwidget/jquery.nicescroll.min.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/jqxcore.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/jqxtabs.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/jqxwindow.js"></script>
+
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/bh_utils.js"></script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/plugins/sortable/Sortable-1.3.0.js"></script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/plugins/chart/Chart.js"></script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/plugins/chart/utils.js"></script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/xsxkpub.js"></script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/bhTip.js"></script>
+
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/index/indexBS.min.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/grablessons/grablessons.js"></script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/curriculavariable/sidebar.js"></script>
+	<script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/grablessons/grablessonsBS.js"></script>
+
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/departurelog/departurelog.min.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/departurelog/departurelogBS.min.js"></script>
+
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/selectedcourse/selectedcourse.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/selectedcourse/selectedcourseBS.js"></script>
+
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/collection/collection.min.js"></script>
+    <script type="text/javascript" src="http://xkres.szu.edu.cn/products/jwfw/xsxkapp/public/js/collection/collectionBS.min.js"></script>
+
+</body></html>

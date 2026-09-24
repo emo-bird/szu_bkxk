@@ -1,0 +1,75 @@
+Windows PowerShell
+版权所有（C） Microsoft Corporation。保留所有权利。
+
+安装最新的 PowerShell，了解新功能和改进！https://aka.ms/PSWindows
+
+PS C:\Users\<用户名>> cd C:\Project\szu_bkxk
+PS C:\Project\szu_bkxk> .\.venv\Scripts\python.exe tools\spike_webview2_embed.py
+=== [1] 创建内嵌 WebView2 ===
+    父窗口 HWND = 7935440，容器逻辑尺寸 = 1100x758，DPR = 2.0
+    CreateAsync 完成，正在创建 Controller …
+    [OK] Controller 创建成功，Bounds 已同步
+
+=== [2] 连接 CDP ===
+    [OK] Edg/153.0.4234.48 (CDP 1.3)
+    目标页面 = http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*default/grablessons.do
+
+=== [3] 执行 JS ===
+    标题='选课'
+    地址=http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*default/index.do
+
+=== [4] 等待登录，然后读取凭证 ===
+    …请在窗口中完成统一身份认证登录
+    sessionStorage.token = 87139c1d-c…(len=36)
+    Cookie 头长度 = 178，名称 = ['_WEU', 'JSESSIONID', 'route', 'insert_cookie']
+
+=== [5] 在课程卡片上注入教学班ID ===
+    注入结果 = {"cards": 13, "tags": 0, "sample": "", "diag": {"hookInstalled": true, "cardsWithChildTcId": 13, "url": "http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*default/grablessons.do?token=87139c1d-cb6c-4bcf-846e-55c035ebcc2e", "cardId": "202620271520189001039_courseDiv", "cardAttrs": ["id", "class", "canselect", "isfull", "isconflict", "ischoose", "limitgender", "boyscapacity", "girlscapacity", "numberofboy", "numberofgirl"], "childTcId": "202620271520189001039", "childTag": "BUTTON.cv-btn cv-tag cv-delete-volunteer ", "htmlHead": "<div id=\"202620271520189001039_courseDiv\" class=\"cv-course-card\" canselect=\"0\" isfull=\"1\" isconflict=\"0\" ischoose=\"1\" limitgender=\"0\" boyscapacity=\"null\" girlscapacity=\"null\" numberofboy=\"null\" numberofgirl=\"null\"><div class=\"cv-info\"><h5><span class=\"cv-info-title\" title=\"[39]梁鸣雁\">[39]梁鸣雁</span><bu"}}
+    [诊断] 首张卡片结构：
+        hookInstalled = True
+        cardsWithChildTcId = 13
+        url = http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*default/grablessons.do?token=87139c1d-cb6c-4bcf-846e-55c035ebcc2e
+        cardId = 202620271520189001039_courseDiv
+        cardAttrs = ['id', 'class', 'canselect', 'isfull', 'isconflict', 'ischoose', 'limitgender', 'boyscapacity', 'girlscapacity', 'numberofboy', 'numberofgirl']
+        childTcId = 202620271520189001039
+        childTag = BUTTON.cv-btn cv-tag cv-delete-volunteer
+        htmlHead = <div id="202620271520189001039_courseDiv" class="cv-course-card" canselect="0" isfull="1" isconflict="0" ischoose="1" limitgender="0" boyscapacity="null" girlscapacity="null" numberofboy="null" numberofgirl="null"><div class="cv-info"><h5><span class="cv-info-title" title="[39]梁鸣雁">[39]梁鸣雁</span><bu
+
+=== [6] 被动捕获接口响应（零额外请求）===
+    捕获接口数 = 18，总条数 = 21
+      2026000000.do ×1
+      batch.do ×1
+      batchtoopen.do ×1
+          code='1' msg='0'
+      celebrityfamous.do ×1
+          code='1' msg='查询名人名言成功' dataList=0条
+      courseResult.do ×1
+          code='1' msg='查询选课结果成功' dataList=11条 课程级字段=['campus', 'campusName', 'canDelete', 'chooseVolunteer', 'classCapacity', 'comment', 'courseIndex', 'courseName', 'courseNature', 'courseNatureName', 'courseNumber', 'courseType']
+      dictionary.do ×1
+      grablessons.do ×1
+      guideMap.do ×1
+          code='1' msg='已读引导页'
+      image.do ×1
+      index.do ×1
+      login.do ×1
+      onlineUsers.do ×2
+          code='1' msg='查询在线人数成功'
+      programCourse.do ×1
+      publicinfo.do ×1
+      recommendedCourse.do ×3
+          code='1' msg='查询推荐选课成功' dataList=7条 课程级字段=['campusName', 'courseName', 'courseNatureName', 'courseNumber', 'courseTotalNumber', 'credit', 'creditType', 'creditTypeName', 'departmentName', 'hours', 'number', 'selected'] tcList=13条 教学班级字段=['boysCapacity', 'chooseVolunteer', 'classCapacity', 'conflictDesc', 'courseIndex', 'courseNatureName', 'courseNumber', 'courseTotalNumber', 'courseTypeName', 'departmentName', 'extInfo', 'girlsCapacity']
+      sysparam.do ×1
+      unsuccessful.do ×1
+          code='1' msg='查询学生退课日志成功' dataList=0条
+      vcode.do ×1
+
+=== spike 结论 ===
+    [OK] WebView2 内嵌到 Qt 窗口
+    [OK] CDP 端口可达
+    [OK] 执行 JS
+    [OK] 登录后读取 cookie
+    [FAIL] 卡片注入教学班ID
+    [OK] 被动捕获接口响应
+
+存在未通过项，见上面逐项说明。
+PS C:\Project\szu_bkxk>

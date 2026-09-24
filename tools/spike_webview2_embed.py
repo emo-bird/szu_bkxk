@@ -71,11 +71,14 @@ CHECK_TIMEOUT = 600.0
 #: 抓包实测：根元素 `.cv-course-card` **没有** tcId 属性，tcId 挂在子元素上，
 #: 且根元素 id 形如 ``<教学班ID>_courseDiv``，容量元素 id 形如 ``<教学班ID>_capacity``。
 #: 因此按「根属性 → 子元素属性 → 根 id 前缀」三级回退取值。
+#:
+#: ⚠️ 关键陷阱：本脚本会经 ``Page.addScriptToEvaluateOnNewDocument`` 在新文档
+#: **骨架建立之前**执行，此时 ``document.documentElement`` 仍为 ``null``；
+#: 直接 ``observe(document.documentElement, ...)`` 会抛异常，导致其后的
+#: ``setInterval`` 与首次 ``tag()`` 全部不执行（表现为脚本"跑了"但一个标签都没插）。
+#: 故必须延迟到 DOM 骨架就绪后再启动。
 INJECT_TCID_SCRIPT = r"""
 (function () {
-  if (window.__szuTcidHook) { return; }
-  window.__szuTcidHook = true;
-
   function pickTcId(card) {
     var direct = card.getAttribute('tcId');
     if (direct) { return direct; }
@@ -91,6 +94,7 @@ INJECT_TCID_SCRIPT = r"""
 
   function tag() {
     var cards = document.querySelectorAll('.cv-course-card');
+    var added = 0;
     for (var i = 0; i < cards.length; i++) {
       var card = cards[i];
       if (card.querySelector('.cv-tcid')) { continue; }
@@ -103,16 +107,32 @@ INJECT_TCID_SCRIPT = r"""
       var info = card.querySelector('.cv-info');
       if (info && info.firstChild) { info.insertBefore(box, info.firstChild); }
       else { card.appendChild(box); }
+      added++;
     }
+    window.__szuTcidTagged = (window.__szuTcidTagged || 0) + added;
+    return added;
   }
 
-  var timer = null;
-  new MutationObserver(function () {
-    clearTimeout(timer);
-    timer = setTimeout(tag, 150);
-  }).observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(tag, 1200);
-  tag();
+  function boot() {
+    if (window.__szuTcidBooted) { return; }
+    if (!document.documentElement) { setTimeout(boot, 30); return; }
+    window.__szuTcidBooted = true;
+    window.__szuTcidHook = true;
+    try {
+      new MutationObserver(function () {
+        clearTimeout(window.__szuTcidTimer);
+        window.__szuTcidTimer = setTimeout(tag, 150);
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    } catch (e) { /* 观察器失败不影响下面的轮询兜底 */ }
+    setInterval(tag, 1200);
+    tag();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  }
+  setTimeout(boot, 30);
+  boot();
 })();
 """
 
@@ -127,17 +147,19 @@ INJECT_PROBE_SCRIPT = r"""
   }
   var diag = {
     hookInstalled: !!window.__szuTcidHook,
+    booted: !!window.__szuTcidBooted,
+    taggedTotal: window.__szuTcidTagged || 0,
     cardsWithChildTcId: withChild,
     url: location.href
   };
   if (cards.length) {
     var card = cards[0];
     diag.cardId = card.getAttribute('id');
-    diag.cardAttrs = Array.prototype.map.call(card.attributes, function (a) { return a.name; });
-    var child = card.querySelector('[tcId]');
-    diag.childTcId = child ? child.getAttribute('tcId') : null;
-    diag.childTag = child ? child.tagName + '.' + child.className : null;
-    diag.htmlHead = card.outerHTML.slice(0, 300);
+    diag.childTcId = (function () {
+      var child = card.querySelector('[tcId]');
+      return child ? child.getAttribute('tcId') : null;
+    })();
+    diag.htmlHead = card.outerHTML.slice(0, 260);
   }
   return JSON.stringify({
     cards: cards.length,
@@ -320,9 +342,12 @@ async def _cdp_checks(results: dict[str, bool]) -> None:
         await cdp.inject_on_new_document(INJECT_TCID_SCRIPT)
         if token:
             await cdp.navigate(f"{GRAB_URL}?token={token}")
-        # 注入脚本在新文档加载时自动执行；等待卡片渲染完成
-        for _ in range(12):
+        probe: dict = {}
+        for _ in range(15):
             await asyncio.sleep(1)
+            # 除了注册到新文档，还对**当前**文档立即执行一次（脚本自身幂等），
+            # 这样不依赖新文档注入的时机，双保险
+            await cdp.evaluate(INJECT_TCID_SCRIPT)
             probe = json.loads(str(await cdp.evaluate(INJECT_PROBE_SCRIPT)))
             if int(probe.get("tags", 0)) > 0:
                 break
