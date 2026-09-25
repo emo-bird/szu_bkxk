@@ -26,9 +26,7 @@
     });
 
     // 选课页：P0 课程列表优化
-    // 拦截要尽早挂载（document-start），DOM 操作等 ready
     if (/default\/grablessons\.do/.test(path)) {
-      NS.intercept.start();
       ready(function () {
         NS.list.start();
       });

@@ -2,14 +2,14 @@
  * P0：优化课程列表显示。
  *
  * 方案（用户指定）：课程卡片展示教学班ID + 减小行间距 + 两个按钮
- *   「添加抢课」「添加监控」。
+ *   「添加抢课」「添加监控」；ID 与按钮构成「抢课模块」，纵向两行，
+ *   位于**单个课程行内部**。
  *
- * DOM 契约（取自 docs/grablessons.do.html 的模板）：
- *   - tpl-public-list-row / tpl-mooc-list-row：**行即教学班**，直接带 tcId/number/isFull
- *   - tpl-program/unprogram/recommend/minor/retake/sport-list-row：**行是课程**，
- *     教学班藏在响应 tcList 里，点「课程详情」才展开（见 intercept.js）
- *
- * 站点会异步重渲染列表，故用 MutationObserver 处理新增行。
+ * 【关键事实】站点把教学班藏在全局变量里，而不是渲染成独立行：
+ *   courseDataList[$row.attr("index")].tcList
+ * 由 grablessons.js 的 openCourseTeacherList() 在点开时才渲染成
+ * <section><div class="cv-course-card">…</div></section>。
+ * 我们直接读 courseDataList，因此**不必**依赖展开，也不必劫持网络。
  */
 (function (root) {
   'use strict';
@@ -20,59 +20,40 @@
   var CSS_ID = 'szu-bkxk-p0-style';
   var DONE_ATTR = 'data-szu-p0';
 
+  /** 各列表容器 id（站点实际使用的）。 */
+  L.BODIES = [
+    'publicBody', 'moocBody', 'programBody', 'unProgramBody', 'recommendBody',
+    'minorBody', 'retakeBody', 'sportBody', 'schoolBody',
+  ];
+
   /**
    * 注入样式。
-   * 【关键】行距 0.9（用户指定）+ 强制换行约束，避免长课程名溢出卡片。
+   * 【关键】行距 0.9（用户指定）+ 换行约束，避免长课程名溢出。
    */
   L.injectStyle = function () {
     if (root.document.getElementById(CSS_ID)) return;
     var style = root.document.createElement('style');
     style.id = CSS_ID;
     style.textContent = [
-      // 行距压缩
       '.cv-row,.cv-row>div{line-height:.9 !important;}',
-      // 长内容不溢出：允许在任意字符处换行，并约束在容器内
       '.cv-row>div{word-break:break-all;overflow-wrap:anywhere;min-width:0;}',
       '.cv-row{box-sizing:border-box;}',
-      // 我们注入的一整行：横向排布，单独占一行
-      '.szu-bar{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:6px;',
-      'width:100%;box-sizing:border-box;padding:2px 8px;line-height:1.2;',
-      'background:#f6f9fd;border-top:1px dashed #d6e4f5;font-size:12px;}',
-      '.szu-tcid{color:#5b7ea6;font-family:Consolas,Menlo,monospace;',
-      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46%;}',
-      '.szu-ops{display:flex;flex-direction:row;gap:6px;flex:0 0 auto;}',
+      // 「抢课模块」：行内纵向两行块
+      '.szu-block{display:block;width:100%;box-sizing:border-box;',
+      'padding:3px 6px;margin:2px 0;background:#f6f9fd;border-left:3px solid #4a90d9;',
+      'font-size:12px;line-height:1.35;border-radius:2px;}',
+      '.szu-block .szu-id{display:block;color:#3d6ea5;font-family:Consolas,Menlo,monospace;',
+      'white-space:normal;word-break:break-all;}',
+      '.szu-block .szu-id .szu-label{color:#8aa4c0;font-family:inherit;}',
+      '.szu-block .szu-ops{display:flex;flex-direction:row;gap:6px;margin-top:2px;}',
       '.szu-btn{border:1px solid #4a90d9;background:#fff;color:#4a90d9;',
       'font-size:12px;line-height:1.5;padding:1px 8px;border-radius:3px;cursor:pointer;',
       'white-space:nowrap;flex:0 0 auto;}',
       '.szu-btn:hover{background:#4a90d9;color:#fff;}',
       '.szu-btn.szu-on{background:#4a90d9;color:#fff;}',
-      '.szu-list-row{display:block !important;}',
+      '.szu-full .szu-id{color:#c0392b;}',
     ].join('');
     (root.document.head || root.document.documentElement).appendChild(style);
-  };
-
-  /**
-   * 从一行 DOM 取教学班信息。
-   * 优先用 tcId 属性；没有 tcId 的行（课程级）返回 null，由 intercept 模块处理。
-   */
-  L.readRow = function (row) {
-    var choice = row.querySelector('a.cv-choice[tcId]') || row.querySelector('[tcId]');
-    if (!choice) return null;
-    var tcId = choice.getAttribute('tcId');
-    if (!tcId) return null;
-    var titleEl = row.querySelector('.cv-title-col') || row.querySelector('.cv-course') || row.querySelector('.cv-school-title-col');
-    var timeEl = row.querySelector('.cv-time-col span');
-    var teacherEl = row.querySelector('.cv-teacher-col') || row.querySelector('.cv-school-teacher-col');
-    return {
-      teachingClassID: tcId,
-      courseIndex: choice.getAttribute('number') || '',
-      isFull: choice.getAttribute('isFull') || '',
-      isConflict: choice.getAttribute('isConflict') || '',
-      courseName: NS.util.text(titleEl),
-      teacherName: NS.util.text(teacherEl),
-      teachingPlace: timeEl ? String(timeEl.getAttribute('title') || timeEl.textContent || '').trim() : '',
-      row: row,
-    };
   };
 
   /** 提示条。 */
@@ -94,7 +75,7 @@
   }
   L.toast = toast;
 
-  /** 当前登录学号：站点把它放在 sessionStorage.studentInfo 里。 */
+  /** 当前登录学号：站点放在 sessionStorage.studentInfo 里。 */
   L.studentCode = function () {
     try {
       var raw = root.sessionStorage && root.sessionStorage.getItem('studentInfo');
@@ -103,8 +84,7 @@
         if (info && info.code) return String(info.code);
       }
     } catch (e) { /* 忽略 */ }
-    var m = /"code"\s*:\s*"(\d{6,})"/.exec(root.document.documentElement.innerHTML);
-    return m ? m[1] : '';
+    return '';
   };
 
   /** 会话 token：站点放在 sessionStorage.token。 */
@@ -116,7 +96,7 @@
     }
   };
 
-  /** 当前批次码：站点放在 sessionStorage.currentBatch。 */
+  /** 当前批次：站点放在 sessionStorage.currentBatch（含 code / schoolTerm）。 */
   L.currentBatch = function () {
     try {
       var raw = root.sessionStorage && root.sessionStorage.getItem('currentBatch');
@@ -124,6 +104,42 @@
     } catch (e) {
       return null;
     }
+  };
+
+  /**
+   * 取某一行对应的教学班数组。
+   * 数据源：全局 courseDataList[row.index].tcList（站点自己用的那份）。
+   * 若课程行本身即教学班（公选/慕课），返回单项。
+   */
+  L.classesForRow = function (row) {
+    // 1) 课程行：按 index 去全局数据里取 tcList
+    var idx = row.getAttribute && row.getAttribute('index');
+    var list = root.courseDataList;
+    if (idx !== null && idx !== undefined && Array.isArray(list)) {
+      var item = list[Number(idx)];
+      if (item && Array.isArray(item.tcList) && item.tcList.length) {
+        return NS.courses.classesOf(item);
+      }
+    }
+    // 2) 行本身带 tcId（公选 / 慕课）
+    var choice = row.querySelector && (row.querySelector('a.cv-choice[tcId]') || row.querySelector('[tcId]'));
+    if (choice) {
+      var tcId = choice.getAttribute('tcId');
+      if (tcId) {
+        var titleEl = row.querySelector('.cv-title-col') || row.querySelector('.cv-course') || row.querySelector('.cv-school-title-col');
+        var timeEl = row.querySelector('.cv-time-col span');
+        var teacherEl = row.querySelector('.cv-teacher-col') || row.querySelector('.cv-school-teacher-col');
+        return [{
+          teachingClassID: tcId,
+          courseIndex: choice.getAttribute('number') || '',
+          isFull: choice.getAttribute('isFull') || '',
+          courseName: NS.util.text(titleEl),
+          teacherName: NS.util.text(teacherEl),
+          teachingPlace: timeEl ? String(timeEl.getAttribute('title') || timeEl.textContent || '').trim() : '',
+        }];
+      }
+    }
+    return [];
   };
 
   /**
@@ -153,21 +169,14 @@
       NS.warn('写接口未开启，「添加抢课」只构造并打印报文', { 教学班ID: info.teachingClassID });
       return false;
     }
-    NS.info('已加入抢课队列（本轮未实现执行）', info.teachingClassID);
+    NS.info('已加入抢课队列（执行留待后续）', info.teachingClassID);
     toast('已加入抢课任务：' + (info.courseName || info.teachingClassID));
     return true;
   };
 
-  /**
-   * 「添加监控」：只读操作，不需要写接口开关，直接生效。
-   */
+  /** 「添加监控」：只读操作，不需要写接口开关。 */
   L.addMonitor = function (info) {
     var s = NS.settings();
-    var batch = L.currentBatch();
-    if (!s.batchCode && !(batch && batch.code) && !NS.monitor.has(info.teachingClassID)) {
-      // 允许添加，只是首次查询时会提示缺 batchCode
-      NS.warn('batchCode 暂缺，监控将在拿到批次码后开始查询');
-    }
     NS.monitor.add({
       teachingClassID: info.teachingClassID,
       courseName: info.courseName,
@@ -179,17 +188,30 @@
     return true;
   };
 
-  /** 构建「ID + 两个按钮」横向条。 */
-  L.buildBar = function (info) {
-    var bar = root.document.createElement('div');
-    bar.className = 'szu-bar';
+  /**
+   * 构建「抢课模块」：纵向两行 —— 第一行 ID，第二行两个按钮。
+   */
+  L.buildBlock = function (info) {
+    var block = root.document.createElement('div');
+    block.className = 'szu-block' + (String(info.isFull) === '1' ? ' szu-full' : '');
 
-    var idEl = root.document.createElement('span');
-    idEl.className = 'szu-tcid';
-    idEl.title = info.teachingClassID;
-    idEl.textContent = info.teachingClassID;
+    // 第一行：教学班ID
+    var idLine = root.document.createElement('div');
+    idLine.className = 'szu-id';
+    var label = root.document.createElement('span');
+    label.className = 'szu-label';
+    label.textContent = '教学班ID：';
+    idLine.appendChild(label);
+    idLine.appendChild(root.document.createTextNode(info.teachingClassID));
+    if (info.courseIndex) {
+      var idxSpan = root.document.createElement('span');
+      idxSpan.className = 'szu-label';
+      idxSpan.textContent = '　课序号：' + info.courseIndex;
+      idLine.appendChild(idxSpan);
+    }
 
-    var ops = root.document.createElement('span');
+    // 第二行：两个按钮
+    var ops = root.document.createElement('div');
     ops.className = 'szu-ops';
 
     var grabBtn = root.document.createElement('button');
@@ -213,35 +235,65 @@
 
     ops.appendChild(grabBtn);
     ops.appendChild(monBtn);
-    bar.appendChild(idEl);
-    bar.appendChild(ops);
-    return bar;
+    block.appendChild(idLine);
+    block.appendChild(ops);
+    return block;
   };
 
   /**
-   * 给一行注入「ID + 按钮」横向条。
-   * 【关键】条占**课程下方一整行**，不再塞进「操作」列。
-   * 用 nextElementSibling 而非 nextSibling：真实 DOM 里行之间夹着空白文本节点，
-   * 用 nextSibling 会把条插到文本节点前面，位置不可控。
+   * 增强单个课程行：在**行内部**追加「抢课模块」。
+   * 一个课程行可能对应多个教学班，则依次附加多个模块。
    */
   L.enhanceRow = function (row) {
     if (row.getAttribute(DONE_ATTR) === '1') return false;
-    var info = L.readRow(row);
-    if (!info) return false;
+    var classes = L.classesForRow(row);
+    if (!classes || !classes.length) return false;
     row.setAttribute(DONE_ATTR, '1');
-    var bar = L.buildBar(info);
-    if (row.parentNode) row.parentNode.insertBefore(bar, row.nextElementSibling || null);
-    return true;
+
+    var host = row.querySelector('.cv-course') || row.querySelector('.cv-title-col') ||
+               row.querySelector('.cv-school-title-col') || row;
+    var added = 0;
+    for (var i = 0; i < classes.length; i++) {
+      var c = classes[i];
+      if (!c || !c.teachingClassID) continue;
+      var block = L.buildBlock({
+        teachingClassID: c.teachingClassID,
+        courseIndex: c.courseIndex || '',
+        courseName: c.courseName || '',
+        teacherName: c.teacherName || '',
+        teachingPlace: c.teachingPlace || '',
+        isFull: c.isFull || '',
+      });
+      // 追加到行内：优先挂在「课程名」格之后，否则挂到行尾
+      if (host === row) row.appendChild(block);
+      else host.parentNode ? host.parentNode.appendChild(block) : row.appendChild(block);
+      added++;
+    }
+    return added > 0;
   };
 
-  /** 扫描并增强所有带 tcId 的行（复制 DOM 列表再遍历，避免插入子节点影响遍历）。 */
+  /** 扫描所有列表容器里的行。 */
   L.scan = function () {
-    var rows = root.document.querySelectorAll('div.cv-row');
-    var list = [];
-    for (var i = 0; i < rows.length; i++) list.push(rows[i]);
     var n = 0;
-    for (var j = 0; j < list.length; j++) {
-      if (L.enhanceRow(list[j])) n++;
+    for (var b = 0; b < L.BODIES.length; b++) {
+      var body = root.document.getElementById(L.BODIES[b]);
+      if (!body) continue;
+      var rows = body.querySelectorAll ? body.querySelectorAll('.cv-row') : [];
+      // 复制成数组：注入子节点会影响实时 NodeList 的遍历
+      var list = [];
+      for (var i = 0; i < rows.length; i++) list.push(rows[i]);
+      for (var j = 0; j < list.length; j++) {
+        if (L.enhanceRow(list[j])) n++;
+      }
+    }
+    // 兜底：整页扫描（部分容器 id 可能变动）
+    if (n === 0) {
+      var all = root.document.querySelectorAll ? root.document.querySelectorAll('.cv-row') : [];
+      var arr = [];
+      for (var k = 0; k < all.length; k++) arr.push(all[k]);
+      for (var m = 0; m < arr.length; m++) {
+        if (L.enhanceRow(arr[m])) n++;
+      }
     }
     return n;
   };
@@ -257,7 +309,7 @@
         pending = false;
         var n = L.scan();
         if (n) NS.info('P0 增强了 ' + n + ' 行');
-      }, 120);
+      }, 150);
     });
     mo.observe(root.document.body, { childList: true, subtree: true });
   };
@@ -267,7 +319,7 @@
     L.injectStyle();
     var n = L.scan();
     L.observe();
-    NS.info('P0 课程列表优化已启动，首屏增强 ' + n + ' 行');
+    NS.info('P0 课程列表优化已启动，首轮增强 ' + n + ' 行');
     return n;
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

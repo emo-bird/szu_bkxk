@@ -1,38 +1,30 @@
 /**
- * P0 列表增强测试：横幅插入位置 / 扁平与嵌套结构 / 幂等性。
- * 用手写的最小 DOM 模拟，不引入 jsdom（开发文档：不写 DOM 测试，但插入位置是
- * 上一轮真机暴露的 bug，属核心正确性，保留少量用例）。
+ * P0 列表增强测试。
+ * 核心验证：教学班来源是全局 courseDataList[row.index].tcList（站点真实机制），
+ * 以及「抢课模块」注入到课程行**内部**、纵向两行（ID / 按钮）。
  */
 import { test, eq, ok, loadNS, run } from './harness.mjs';
-
-const NS = loadNS({
-  getElementById() { return null; },
-  createElement(tag) { return el(tag); },
-  querySelectorAll(sel) { return sel.includes('cv-row') ? globalRows : []; },
-  addEventListener() {},
-  readyState: 'complete',
-});
-
-/** 当前用例注册的行，供 querySelectorAll 使用。 */
-let globalRows = [];
 
 /** 最小 DOM 元素。 */
 function el(tag) {
   const e = {
     tagName: tag.toUpperCase(), childNodes: [], attrs: {}, _t: '', parentNode: null, nodeType: 1,
-    classList: { _s: new Set(), add(c) { this._s.add(c); }, contains(c) { return this._s.has(c); } },
-    get textContent() { return this._t; },
-    set textContent(v) { this._t = String(v); },
+    style: {},
+    classList: {
+      _s: new Set(),
+      add(c) { this._s.add(c); },
+      contains(c) { return this._s.has(c); },
+    },
+    // textContent 聚合子节点文本（与真实 DOM 一致）
+    get textContent() {
+      if (!this.childNodes.length) return this._t;
+      return this.childNodes.map((c) => (c.nodeType === 3 ? c.textContent : c.textContent)).join('');
+    },
+    set textContent(v) { this._t = String(v); this.childNodes.length = 0; },
     set className(v) { this.attrs['class'] = String(v); },
     get className() { return this.attrs['class'] || ''; },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
-    get nextElementSibling() {
-      if (!this.parentNode) return null;
-      const s = this.parentNode.childNodes, i = s.indexOf(this);
-      for (let j = i + 1; j < s.length; j++) if (s[j].nodeType === 1) return s[j];
-      return null;
-    },
     appendChild(c) { c.parentNode = this; this.childNodes.push(c); return c; },
     insertBefore(n, ref) {
       n.parentNode = this;
@@ -40,145 +32,180 @@ function el(tag) {
       if (i < 0) this.childNodes.push(n); else this.childNodes.splice(i, 0, n);
       return n;
     },
-    addEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; },
+    addEventListener() {},
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
   };
   return e;
 }
 
-function row(courseNumber, tcId, name) {
+/** 文本节点：需带 nodeType，供 textContent 聚合时识别。 */
+function textNode(t) { return { nodeType: 3, textContent: t, parentNode: null }; }
+
+/** 构造一个课程行（带 index 属性，教学班在全局数据里）。 */
+function courseRow(index, name, tcIdAttr) {
   const r = el('div');
   r.setAttribute('class', 'cv-row');
-  if (courseNumber) r.setAttribute('coursenumber', courseNumber);
-  if (tcId) {
+  r.setAttribute('index', String(index));
+  const course = el('div');
+  course.setAttribute('class', 'cv-course');
+  course.textContent = name;
+  r.appendChild(course);
+  if (tcIdAttr) {
     const a = el('a');
     a.setAttribute('class', 'cv-choice');
-    a.setAttribute('tcId', tcId);
+    a.setAttribute('tcId', tcIdAttr);
     a.setAttribute('number', '01');
     r.appendChild(a);
   }
-  const t = el('div');
-  t.setAttribute('class', 'cv-title-col');
-  t.textContent = name;
-  r.appendChild(t);
   r.querySelector = (sel) => {
     const kids = r.childNodes.filter((c) => c.nodeType === 1);
     if (sel.includes('cv-choice')) return kids.find((c) => (c.attrs['class'] || '').includes('cv-choice')) || null;
-    if (sel.includes('cv-title-col')) return kids.find((c) => (c.attrs['class'] || '').includes('cv-title-col')) || null;
+    if (sel.includes('cv-course')) return kids.find((c) => (c.attrs['class'] || '').includes('cv-course')) || null;
+    if (sel.includes('cv-title-col')) return null;
     return null;
   };
   return r;
 }
 
-function barsOf(container) {
-  return container.childNodes.filter((c) => c.nodeType === 1 && c.getAttribute('class') === 'szu-bar');
+/** 构造一个列表容器。 */
+function body(id, rows) {
+  const b = el('div');
+  b.setAttribute('id', id);
+  b.childNodes.push(...rows);
+  rows.forEach((r) => { r.parentNode = b; });
+  b.querySelectorAll = (sel) => (sel.includes('cv-row') ? rows : []);
+  return b;
 }
 
-test('横条插入在各自行的紧后面（nextElementSibling）', () => {
-  const r1 = row('C1', 'T1', '课一');
-  const r2 = row('C2', 'T2', '课二');
-  const c = el('div');
-  c.appendChild(r1);
-  c.appendChild({ nodeType: 3, textContent: '\n', parentNode: null });
-  c.appendChild(r2);
-
-  NS.list.enhanceRow(r1);
-  NS.list.enhanceRow(r2);
-
-  eq(r1.nextElementSibling.getAttribute('class'), 'szu-bar', 'r1 后紧跟横条');
-  eq(r2.nextElementSibling.getAttribute('class'), 'szu-bar', 'r2 后紧跟横条');
-  eq(barsOf(c).length, 2, '共 2 条');
-});
-
-test('横条含教学班ID + 两个按钮', () => {
-  const r = row('C1', 'T1', '课一');
-  el('div').appendChild(r);
-  NS.list.enhanceRow(r);
-  const bar = r.nextElementSibling;
-  const idEl = bar.childNodes[0];
-  const ops = bar.childNodes[1];
-  eq(idEl.textContent, 'T1', 'ID 文本');
-  eq(ops.childNodes.length, 2, '两个按钮');
-  eq(ops.childNodes[0].textContent, '添加抢课');
-  eq(ops.childNodes[1].textContent, '添加监控');
-});
-
-test('同一行不会被重复增强', () => {
-  const r = row('C1', 'T1', '课一');
-  const c = el('div');
-  c.appendChild(r);
-  ok(NS.list.enhanceRow(r), '首次增强返回 true');
-  ok(!NS.list.enhanceRow(r), '再次增强返回 false');
-  eq(barsOf(c).length, 1, '只有一条横条');
-});
-
-test('没有 tcId 的行不被增强（交给拦截模块）', () => {
-  const r = row('C1', null, '课程级行');
-  el('div').appendChild(r);
-  ok(!NS.list.enhanceRow(r), '返回 false');
-  eq(r.nextElementSibling, null, '未插入任何东西');
-});
-
-test('嵌套结构 flatten：dataList → tcList', () => {
-  const cls = NS.courses.flatten({
-    data: { dataList: [{ courseNumber: 'C1', tcList: [{ teachingClassID: 'T1' }, { teachingClassID: 'T2' }] }] },
-  });
-  eq(cls.length, 2);
-  eq(cls.map((x) => x.teachingClassID), ['T1', 'T2']);
-});
-
-test('扁平结构 flatten：publicCourse 无 tcList，一行即一个教学班', () => {
-  const cls = NS.courses.flatten({
-    data: { dataList: [{ teachingClassID: 'T9', courseName: '视听说' }] },
-  });
-  eq(cls.length, 1);
-  eq(cls[0].teachingClassID, 'T9');
-});
-
-test('嵌套时教学班级 null 不覆盖课程级字段', () => {
-  const cls = NS.courses.flatten({
-    data: {
-      dataList: [{
-        courseName: '高等数学A(1)', teacherName: '尹乐', credit: '5.0',
-        tcList: [{ teachingClassID: 'T1', courseName: null, teacherName: null, credit: null }],
-      }],
+function mkDoc(bodies) {
+  return {
+    getElementById(id) { return bodies.find((b) => b.getAttribute('id') === id) || null; },
+    createElement(tag) { return el(tag); },
+    createTextNode(t) { return textNode(t); },
+    querySelectorAll(sel) {
+      if (!sel.includes('cv-row')) return [];
+      const out = [];
+      bodies.forEach((b) => b.childNodes.forEach((c) => { if (c.nodeType === 1 && c.getAttribute('class') === 'cv-row') out.push(c); }));
+      return out;
     },
-  });
-  eq(cls[0].courseName, '高等数学A(1)', '课程名回退到课程级');
-  eq(cls[0].teacherName, '尹乐', '教师回退到课程级');
-  eq(cls[0].credit, '5.0', '学分回退到课程级');
+    addEventListener() {},
+    readyState: 'complete',
+  };
+}
+
+/** 注入全局 courseDataList（站点真实数据源）。 */
+function withDataList(NS, list) { NS.__setCourseDataList(list); }
+
+function blocksOf(row) {
+  return row.childNodes.filter((c) => c.nodeType === 1 && (c.getAttribute('class') || '').includes('szu-block'));
+}
+
+// ---- 用例 ----
+
+test('教学班来自全局 courseDataList[row.index].tcList', () => {
+  const r = courseRow(0, '高等数学A(1)');
+  const b = body('programBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, [{ courseNumber: '1900600001', tcList: [{ teachingClassID: 'T1' }, { teachingClassID: 'T2' }] }]);
+
+  const classes = NS.list.classesForRow(r);
+  eq(classes.length, 2, '取到 2 个教学班');
+  eq(classes.map((c) => c.teachingClassID), ['T1', 'T2']);
 });
 
-test('拦截补渲染：课程级行按 courseNumber 匹配到教学班', () => {
-  const r = row('C1', null, '高等数学A(1)');
-  const c = el('div');
-  c.appendChild(r);
-  globalRows = [r];
-  NS.intercept.handleListResponse({
-    data: { dataList: [{ courseNumber: 'C1', tcList: [{ teachingClassID: 'T1' }, { teachingClassID: 'T2' }] }] },
-  });
-  eq(barsOf(c).length, 2, '补渲染 2 条');
+test('module 注入到课程行内部，且为纵向两行（ID / 按钮）', () => {
+  const r = courseRow(0, '高等数学A(1)');
+  const b = body('programBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, [{ tcList: [{ teachingClassID: 'T1', courseIndex: '18' }] }]);
+
+  NS.list.enhanceRow(r);
+
+  const blocks = blocksOf(r);
+  eq(blocks.length, 1, '行内出现 1 个抢课模块');
+  const blk = blocks[0];
+  eq(blk.childNodes.length, 2, '模块纵向两行');
+  eq(blk.childNodes[0].getAttribute('class'), 'szu-id', '第一行是 ID 行');
+  eq(blk.childNodes[1].getAttribute('class'), 'szu-ops', '第二行是按钮行');
+  ok(blk.childNodes[0].textContent.includes('T1'), 'ID 行含教学班ID');
+  eq(blk.childNodes[1].childNodes.length, 2, '两个按钮');
 });
 
-test('拦截补渲染幂等：同一课程行不重复补', () => {
-  const r = row('C1', null, '课');
-  const c = el('div');
-  c.appendChild(r);
-  globalRows = [r];
-  const payload = { data: { dataList: [{ courseNumber: 'C1', tcList: [{ teachingClassID: 'T1' }] }] } };
-  NS.intercept.handleListResponse(payload);
-  NS.intercept.handleListResponse(payload);
-  eq(barsOf(c).length, 1, '仍只有 1 条');
+test('多教学班 → 行内多个模块', () => {
+  const r = courseRow(0, '课');
+  const b = body('programBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, [{ tcList: [{ teachingClassID: 'T1' }, { teachingClassID: 'T2' }, { teachingClassID: 'T3' }] }]);
+
+  NS.list.enhanceRow(r);
+  eq(blocksOf(r).length, 3, '3 个模块');
 });
 
-test('拦截补渲染：courseNumber 对不上的行不动', () => {
-  const r = row('C9', null, '别的课');
-  const c = el('div');
-  c.appendChild(r);
-  globalRows = [r];
-  NS.intercept.handleListResponse({
-    data: { dataList: [{ courseNumber: 'C1', tcList: [{ teachingClassID: 'T1' }] }] },
-  });
-  eq(barsOf(c).length, 0, '不该补到别的课上');
+test('幂等：同一行不重复增强', () => {
+  const r = courseRow(0, '课');
+  const b = body('programBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, [{ tcList: [{ teachingClassID: 'T1' }] }]);
+
+  ok(NS.list.enhanceRow(r), '首次 true');
+  ok(!NS.list.enhanceRow(r), '再次 false');
+  eq(blocksOf(r).length, 1, '仍只 1 个模块');
+});
+
+test('行本身带 tcId（公选/慕课）也能增强', () => {
+  const r = courseRow(0, '视听说', 'T9');
+  const b = body('publicBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, null);
+
+  NS.list.enhanceRow(r);
+  eq(blocksOf(r).length, 1, '1 个模块');
+  ok(blocksOf(r)[0].childNodes[0].textContent.includes('T9'), 'ID 正确');
+});
+
+test('拿不到教学班的行不增强', () => {
+  const r = courseRow(5, '孤立课');
+  const b = body('programBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, []);
+
+  ok(!NS.list.enhanceRow(r), '返回 false');
+  eq(blocksOf(r).length, 0, '无模块');
+});
+
+test('scan 遍历多个列表容器', () => {
+  const r1 = courseRow(0, '课一');
+  const r2 = courseRow(0, '课二');
+  const b1 = body('programBody', [r1]);
+  const b2 = body('publicBody', [r2]);
+  const NS = loadNS(mkDoc([b1, b2]));
+  withDataList(NS, [{ tcList: [{ teachingClassID: 'T1' }] }]);
+
+  const n = NS.list.scan();
+  eq(n, 2, '两个容器各增强 1 行');
+});
+
+test('isFull=1 时模块带 szu-full 标记', () => {
+  const r = courseRow(0, '课');
+  const b = body('programBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, [{ tcList: [{ teachingClassID: 'T1', isFull: '1' }] }]);
+
+  NS.list.enhanceRow(r);
+  ok((blocksOf(r)[0].getAttribute('class') || '').includes('szu-full'), '含 szu-full');
+});
+
+test('增强不会把模块插到行外（父节点仍是行）', () => {
+  const r = courseRow(0, '课');
+  const b = body('programBody', [r]);
+  const NS = loadNS(mkDoc([b]));
+  withDataList(NS, [{ tcList: [{ teachingClassID: 'T1' }] }]);
+
+  NS.list.enhanceRow(r);
+  ok(blocksOf(r)[0].parentNode === r, '模块父节点是课程行');
+  eq(b.childNodes.filter((c) => c.nodeType === 1 && (c.getAttribute('class') || '').includes('szu-block')).length, 0,
+    '容器直接子节点里没有模块（未被插到行外）');
 });
 
 await run();

@@ -32,7 +32,7 @@ export function ok(value, label) {
  * 传入 docMock 时，把该对象作为 document 注入（供 list/intercept 的 DOM 用例使用）。
  */
 export function loadNS(docMock) {
-  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'list.js', 'intercept.js'];
+  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'list.js'];
   const src = MODULES.map((m) => readFileSync(join(ROOT, 'src', m), 'utf8')).join('\n');
 
   const sandbox = {
@@ -73,6 +73,17 @@ export function loadNS(docMock) {
     sandbox.sessionStorage, sandbox.document, sandbox.location, sandbox.fetch,
     sandbox.XMLHttpRequest, sandbox.MutationObserver, sandbox.BH_UTILS
   );
+
+  // 测试钩子：读写站点全局 courseDataList（list.js 的真实数据源）
+  sandbox.SZUBKXK.__setCourseDataList = (v) => { sandbox.courseDataList = v; };
+  sandbox.SZUBKXK.__setSession = (map) => {
+    sandbox.sessionStorage = {
+      _d: map || {},
+      getItem(k) { return k in this._d ? this._d[k] : null; },
+      setItem(k, v) { this._d[k] = String(v); },
+      removeItem(k) { delete this._d[k]; },
+    };
+  };
   return sandbox.SZUBKXK;
 }
 
