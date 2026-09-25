@@ -144,6 +144,18 @@
     return { token: String(token), 'X-Requested-With': 'XMLHttpRequest' };
   };
 
+  /**
+   * 从页面取会话令牌（站点放在 sessionStorage.token）。
+   * 站点所有接口都要求 cookie + 请求头 `token` 缺一不可，故这是发请求的必需品。
+   */
+  API.sessionToken = function () {
+    try {
+      return (root.sessionStorage && root.sessionStorage.getItem('token')) || '';
+    } catch (e) {
+      return '';
+    }
+  };
+
   /** HTTP 状态码是否表示登录态失效。 */
   API.isAuthStatus = function (status) {
     return status === 401 || status === 403;
@@ -216,18 +228,28 @@
 
   /**
    * 发一次经过限流队列的请求。**唯一出口**，不要绕过。
-   * @param {object} o {url, method, body, token, priority}
+   *
+   * 【两处实测结论，别改错】
+   * 1. token 必须带：站点要求 cookie + 请求头 `token` 缺一不可。
+   *    未显式传 o.token 时自动取 sessionStorage.token（否则服务端会报
+   *    `value sent to redis cannot be null` 这类错误）。
+   * 2. **不自动追加 timestamp**：HAR 实测 volunteer.do / capacity.do /
+   *    programCourse.do 等都没有 query，只有部分端点（courseResult.do、
+   *    deleteVolunteer.do 等）才带。需要时用 o.timestamp = true 显式开启。
+   * @param {object} o {url, method, body, token, priority, timestamp, action}
    * @returns {Promise<{status:number, text:string, cls:object}>}
    */
   API.send = function (o) {
     return NS.queue.submit(function () {
+      var token = o.token || API.sessionToken();
       var headers = {};
-      if (o.token) {
-        var h = API.headers(o.token);
+      if (token) {
+        var h = API.headers(token);
         for (var k in h) if (Object.prototype.hasOwnProperty.call(h, k)) headers[k] = h[k];
       }
       if (o.body) headers['Content-Type'] = 'application/x-www-form-urlencoded';
-      var url = API.appendTimestamp(o.url);
+      var url = o.timestamp ? API.appendTimestamp(o.url) : o.url;
+      NS.info('[请求] ' + (o.action || '') + ' ' + url + (o.body ? ' | ' + o.body : ''));
       return root.fetch(url, {
         method: o.method || 'POST',
         credentials: 'include',
@@ -238,7 +260,14 @@
           var cls = API.classify({ status: res.status, text: text });
           // 红线④：未识别必须全量落档
           if (cls.kind === API.RESP_KIND.UNKNOWN) {
-            NS.dumpUnknown({ action: o.action || '?', url: url, body: o.body || '', text: text });
+            NS.dumpUnknown({
+              action: o.action || '?',
+              url: url,
+              body: o.body || '',
+              text: text,
+              code: cls.code,
+              msg: cls.msg,
+            });
           }
           return { status: res.status, text: text, cls: cls };
         });

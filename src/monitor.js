@@ -55,14 +55,16 @@
 
   /**
    * 查单个教学班的余量（只读，走限流队列）。
+   * batchCode 必须用**页面会话里**的值（站点 capacity.do 用的就是它），
+   * 不能只看设置里手填的那个 —— 之前用错来源导致 batchCode 为空。
    * @returns {Promise<{remain:(number|null), kind:string, msg:string}>}
    */
   M.checkOne = function (tcId) {
-    var s = NS.settings();
-    if (!s.batchCode) {
-      return Promise.resolve({ remain: null, kind: 'nobatch', msg: 'batchCode 为空' });
+    var ctx = NS.list.sessionContext();
+    if (!ctx.batchCode) {
+      return Promise.resolve({ remain: null, kind: 'nobatch', msg: '批次码为空（请刷新选课页）' });
     }
-    var body = NS.api.buildCapacityBody(tcId, s.batchCode);
+    var body = NS.api.buildCapacityBody(tcId, ctx.batchCode);
     return NS.api
       .send({
         action: '查容量 ' + tcId,
@@ -72,6 +74,7 @@
       })
       .then(function (r) {
         if (r.cls.kind !== NS.api.RESP_KIND.OK) {
+          NS.warn('查容量失败 [' + r.cls.kind + '] ' + r.cls.msg + ' | ' + tcId);
           return { remain: null, kind: r.cls.kind, msg: r.cls.msg };
         }
         var remain = NS.api.capacityRemain(r.cls.data);

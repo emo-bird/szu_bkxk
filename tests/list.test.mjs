@@ -80,6 +80,8 @@ function mkDoc(bodies) {
     if (cl.includes('cv-row') && !cl.includes('cv-head')) allRows.push(c);
   }));
   return {
+    body: el('body'),
+    head: el('head'),
     getElementById(id) { return bodies.find((b) => b.getAttribute('id') === id) || null; },
     createElement(tag) { return el(tag); },
     createTextNode(t) { return { nodeType: 3, textContent: t, parentNode: null }; },
@@ -363,6 +365,34 @@ test('sessionContext：sessionStorage 为空时不抛错', () => {
   eq(ctx.studentCode, '');
   eq(ctx.batchCode, '');
   eq(ctx.campus, '01');
+});
+
+// ---------- 监控按钮可反悔 ----------
+
+test('addMonitor：首次点加入监控，再点即移除（按钮可反色）', () => {
+  const NS = loadNS(mkDoc([]));
+  NS.monitor.items = [];
+  const info = { teachingClassID: 'T1', courseName: '课' };
+  eq(NS.list.addMonitor(info), true, '首次返回 true（加入）');
+  eq(NS.monitor.has('T1'), true);
+  eq(NS.list.addMonitor(info), false, '再次返回 false（移除）');
+  eq(NS.monitor.has('T1'), false, '已移除');
+});
+
+test('addMonitor：监控项带上教学班类别', () => {
+  const NS = loadNS(mkDoc([]));
+  NS.monitor.items = [];
+  NS.list.addMonitor({ teachingClassID: 'T2', category: 'XGXK' });
+  eq(NS.monitor.items[0].category, 'XGXK');
+});
+
+test('未识别落档：日志行含 code 与 msg，便于定位服务端抱怨什么', () => {
+  const NS = loadNS();
+  const dump = NS.dumpUnknown({
+    action: 'a', url: 'u', body: 'b', text: 'RAW', code: '0', msg: 'value sent to redis cannot be null',
+  });
+  ok(dump.includes('code: 0'), '含 code');
+  ok(dump.includes('value sent to redis cannot be null'), '含 msg');
 });
 
 await run();

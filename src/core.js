@@ -39,10 +39,13 @@
       'action: ' + (input && input.action) + '\n' +
       'url: ' + (input && input.url) + '\n' +
       'body: ' + (input && input.body) + '\n' +
+      'code: ' + (input && input.code) + ' | msg: ' + (input && input.msg) + '\n' +
       '长度: ' + text.length + ' 字符\n' +
       '原文:\n' + text + '\n' +
       '──────────────────────────────\n';
-    NS.error('未识别返回（已全量落档）');
+    // 把 code/msg 提到日志行里，便于一眼看出服务端在抱怨什么
+    NS.error('未识别返回（已全量落档） code=' + (input && input.code) +
+      (input && input.msg ? ' msg=' + input.msg : ''));
     console.log('%c' + block, 'color:#c00');
     return block;
   };

@@ -92,6 +92,13 @@ export function loadNS(docMock) {
     Object.keys(map || {}).forEach((k) => st.setItem(k, map[k]));
     sandbox.sessionStorage = st;
   };
+  /** 注入 fetch 假实现，用于捕获真实发出的 URL / 请求头 / body。 */
+  sandbox.SZUBKXK.__setFetch = (fn) => { sandbox.fetch = fn; };
+  /** 返回一次假的 fetch 响应。 */
+  sandbox.SZUBKXK.__resp = (text, status) => ({
+    status: status === undefined ? 200 : status,
+    text: () => Promise.resolve(text),
+  });
   return sandbox.SZUBKXK;
 }
 

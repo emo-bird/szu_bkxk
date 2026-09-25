@@ -208,7 +208,18 @@
     return true;
   };
 
+  /**
+   * 「添加监控」：只读操作，不需要写接口开关。
+   * 可反悔：已在监控列表中时再点即移除（按钮颜色随之变回）。
+   * @returns {boolean} true=已加入，false=已移除/失败
+   */
   L.addMonitor = function (info) {
+    if (NS.monitor.has(info.teachingClassID)) {
+      NS.monitor.remove(info.teachingClassID);
+      toast('已取消监控：' + (info.courseName || info.teachingClassID));
+      if (NS.ui) NS.ui.render();
+      return false;
+    }
     var s = NS.settings();
     NS.monitor.add({
       teachingClassID: info.teachingClassID,
@@ -219,6 +230,7 @@
       mode: s.monitorMode,
     });
     toast('已加入监控：' + (info.courseName || info.teachingClassID));
+    if (NS.ui) NS.ui.render();
     return true;
   };
 
@@ -255,7 +267,9 @@
     monBtn.addEventListener('click', function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
+      // 可反悔：再点一次即移除，按钮颜色变回
       if (L.addMonitor(info)) monBtn.classList.add('szu-on');
+      else monBtn.classList.remove('szu-on');
     });
 
     ops.appendChild(grabBtn);
