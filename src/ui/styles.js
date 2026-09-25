@@ -55,6 +55,7 @@
     'box-shadow:0 4px 14px rgba(0,0,0,.25);}',
     '.szubkxk-form{background:#f7f9fc;border:1px solid #e3e9f2;border-radius:4px;padding:6px;margin:4px 0;}',
     '.szubkxk-input-wide{width:150px;}',
+    '.szubkxk-input-full{width:100%;}',
     '.szubkxk-textarea{width:100%;font:12px "Microsoft YaHei",Arial,sans-serif;border:1px solid #ccc;',
     'border-radius:4px;padding:3px;box-sizing:border-box;}',
     '.szubkxk-tasks{max-height:180px;overflow:auto;border:1px solid #eee;border-radius:4px;}',

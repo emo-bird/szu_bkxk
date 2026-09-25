@@ -11,9 +11,12 @@ const { test, section, ok, eq } = require('./harness.js');
 require('../src/core/ns.js');
 require('../src/core/session.js');
 require('../src/core/task.js');
+require('../src/core/time.js');
+require('../src/core/customCourse.js');
 require('../src/ui/recon.js');
 require('../src/ui/panel.js');
 require('../src/ui/tasks.js');
+require('../src/ui/customCourses.js');
 
 const NS = globalThis.SZUBKXK;
 const UI = NS.ui;
@@ -198,4 +201,55 @@ test('timeInputToServerMs：支持 HH:MM:SS', () => {
 
 test('课程类别表覆盖逆向记录的 7 个类别', () => {
   eq(UI.tasks.CATEGORIES.map((c) => c.code), ['FANKC', 'FAWKC', 'TJKC', 'XGXK', 'TYKC', 'FXKC', 'MOOC']);
+});
+
+section('ui/customCourses.js 纯函数');
+
+test('buildCourse：缺课程名 / 缺时间 / 时间无法识别 都要明确拒绝', () => {
+  eq(UI.customCourses.buildCourse({ name: '', timeText: '1-16周 星期二 3-4节 X' }).error, '请填写课程名');
+  eq(UI.customCourses.buildCourse({ name: '甲', timeText: '' }).ok, false);
+  const bad = UI.customCourses.buildCourse({ name: '甲', timeText: '随便写点什么' });
+  eq(bad.ok, false);
+  ok(bad.error.indexOf('1-16周') !== -1, '报错应给出示例：' + bad.error);
+});
+
+test('buildCourse：正常构造并解析出 session', () => {
+  const r = UI.customCourses.buildCourse({
+    name: '重修高数',
+    teacher: '王老师',
+    timeText: '1-16周 星期三 1-2节 致理楼L1-707',
+  });
+  eq(r.ok, true);
+  eq(r.course.name, '重修高数');
+  eq(r.course.teacher, '王老师');
+  eq(r.course.sessions.length, 1);
+  eq(r.course.sessions[0].weekday, 3);
+  eq(r.course.place, '致理楼L1-707');
+});
+
+test('conflictCounts：互相冲突的课程各自计数', () => {
+  const mk = (id, weekday) =>
+    NS.customCourse.normalize({
+      id: id,
+      name: id,
+      sessions: [{ weekStart: 1, weekEnd: 16, weekParity: 'all', weekday: weekday, periodStart: 1, periodEnd: 2 }],
+    });
+  const counts = UI.customCourses.conflictCounts([mk('A', 2), mk('B', 2), mk('C', 5)]);
+  eq(counts, { A: 1, B: 1, C: 0 });
+});
+
+test('conflictCounts：单双周互斥时不算冲突', () => {
+  const mk = (id, parity) =>
+    NS.customCourse.normalize({
+      id: id,
+      name: id,
+      sessions: [{ weekStart: 1, weekEnd: 16, weekParity: parity, weekday: 2, periodStart: 1, periodEnd: 2 }],
+    });
+  eq(UI.customCourses.conflictCounts([mk('A', 'odd'), mk('B', 'even')]), { A: 0, B: 0 });
+  eq(UI.customCourses.conflictCounts([mk('A', 'odd'), mk('B', 'odd')]), { A: 1, B: 1 });
+});
+
+test('conflictCounts：空列表与坏输入不炸', () => {
+  eq(UI.customCourses.conflictCounts([]), {});
+  eq(UI.customCourses.conflictCounts(null), {});
 });

@@ -88,6 +88,12 @@
       }
       runner.load();
 
+      // 自定义课程（M4）：只存 localStorage，参与冲突计算
+      if (NS.ui.customCourses) {
+        var customView = NS.ui.customCourses.create({ doc: doc, store: store, logger: logger });
+        panel.addSection(customView.element);
+      }
+
       if (NS.ui.recon) {
         var facts = NS.ui.recon.collect(root);
         logger.info(NS.log.CATEGORY.RECON, '页面侦察结果（可复制回传）', NS.ui.recon.format(facts));
