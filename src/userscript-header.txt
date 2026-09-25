@@ -12,8 +12,9 @@
 // ==/UserScript==
 //
 // 【本文件是构建输入，不是可直接安装的脚本】
-//   - 这里是元数据头的唯一来源（@version 也在此处维护，构建时会把它注入到代码里的版本占位符）。
-//   - 真正的安装脚本由 `node build/build.mjs` 生成到 `dist/szu_bkxk.user.js`。
+//   - 这里是元数据头的唯一来源（@version 也在此处维护，构建时注入到代码里的版本占位符）。
+//   - 真正的安装脚本由 `node scripts/build.mjs` 生成到 `dist/szu_bkxk.user.js`。
+//   - 构建时**只截取上面 ==UserScript== 块**，本行以下的说明不会进入产物。
 //
 // 【为什么 @grant none】
 //   只有页面上下文才能：复用站点自带的 jQuery/BH_UTILS、读 sessionStorage 的 token、

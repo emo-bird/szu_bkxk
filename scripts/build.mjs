@@ -7,7 +7,7 @@
  * 【模块顺序】按路径字母序拼接。所有模块都自挂命名空间，
  *   因此**模块间不得存在加载顺序依赖**（这是硬约定，见 src/core/ns.js 注释）。
  *
- * 用法：node build/build.mjs
+ * 用法：node scripts/build.mjs
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -20,20 +20,32 @@ const OUT_FILE = join(ROOT, 'dist', 'szu_bkxk.user.js');
 
 const VERSION_TOKEN = '__SZUBKXK_VERSION__';
 
-/** 读取元数据头并取出 @version（构建注入用）。 */
+/**
+ * 读取元数据头，并取出 @version（构建注入用）。
+ *
+ * 只截取 `// ==UserScript==` 到 `// ==/UserScript==` 之间的块；
+ * 该块之外的注释是"给维护者看的构建输入说明"，**不能**出现在产物里
+ * （否则产物里会写着"这不是可直接安装的脚本"这种自相矛盾的话）。
+ */
 function readHeader() {
-  const header = readFileSync(HEADER_FILE, 'utf8').replace(/\r\n/g, '\n').trimEnd();
-  const m = header.match(/^\/\/\s*@version\s+(\S+)\s*$/m);
-  if (!m) throw new Error(`[FAIL] ${relative(ROOT, HEADER_FILE)} 里找不到 @version`);
-  return { header, version: m[1] };
+  const raw = readFileSync(HEADER_FILE, 'utf8').replace(/\r\n/g, '\n');
+  const block = raw.match(/\/\/ ==UserScript==[\s\S]*?\/\/ ==\/UserScript==/);
+  if (!block) throw new Error(`[FAIL] ${relative(ROOT, HEADER_FILE)} 里找不到 ==UserScript== 块`);
+  const header = block[0];
+  const v = header.match(/^\/\/\s*@version\s+(\S+)\s*$/m);
+  if (!v) throw new Error(`[FAIL] ${relative(ROOT, HEADER_FILE)} 里找不到 @version`);
+  return { header, version: v[1] };
 }
 
-/** 递归列出 src 下所有 .js 模块，按路径字母序。 */
+/** 递归列出 src 下所有 .js 模块，按路径字母序；入口 src/main.js 强制排到最后。 */
 function listModules() {
-  return readdirSync(SRC, { recursive: true, withFileTypes: true })
+  const all = readdirSync(SRC, { recursive: true, withFileTypes: true })
     .filter((d) => d.isFile() && d.name.endsWith('.js'))
     .map((d) => join(d.parentPath, d.name))
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  // 入口负责装配其它模块，必须最后执行；而字母序里 main.js 排在 ui/ 之前，所以显式后移。
+  const isEntry = (p) => p === join(SRC, 'main.js');
+  return all.filter((p) => !isEntry(p)).concat(all.filter(isEntry));
 }
 
 function main() {
@@ -51,7 +63,7 @@ function main() {
 
   const out =
     `${header}\n\n` +
-    `// 本文件由 build/build.mjs 自动生成，请勿直接修改；改动请改 src/ 后重新构建。\n` +
+    `// 本文件由 scripts/build.mjs 自动生成，请勿直接修改；改动请改 src/ 后重新构建。\n` +
     `(function () {\n'use strict';\n\n${body}\n\n})();\n`;
 
   if (out.includes(VERSION_TOKEN)) {

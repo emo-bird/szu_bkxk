@@ -16,7 +16,7 @@
   var NS = (root.SZUBKXK = root.SZUBKXK || {});
 
   /**
-   * 脚本版本。构建时由 build/build.mjs 从 src/userscript-header.txt 的 @version 注入。
+   * 脚本版本。构建时由 scripts/build.mjs 从 src/userscript-header.txt 的 @version 注入。
    * 源码里保留占位符，运行源码时读到的是占位符属正常现象。
    */
   NS.version = '__SZUBKXK_VERSION__';

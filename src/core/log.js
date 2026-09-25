@@ -94,12 +94,31 @@
   function Logger(options) {
     options = options || {};
     this.limit = NS.util.clamp(options.limit, 50, 5000, 500);
-    this.sink = typeof options.sink === 'function' ? options.sink : null;
     this.echo = options.echo !== false;
     this.now = typeof options.timeProvider === 'function' ? options.timeProvider : Date.now;
     this._records = [];
     this._seq = 0;
+    /** 订阅者列表（面板等 UI 挂在这里）。 */
+    this._subscribers = [];
+    if (typeof options.sink === 'function') this._subscribers.push(options.sink);
   }
+
+  /**
+   * 订阅日志推送（同一 sink 只允许注册一次）。
+   * @param {Function} fn 回调 function(record)
+   */
+  Logger.prototype.subscribe = function (fn) {
+    if (typeof fn === 'function' && this._subscribers.indexOf(fn) === -1) this._subscribers.push(fn);
+  };
+
+  /**
+   * 退订日志推送。
+   * @param {Function} fn 之前注册的回调
+   */
+  Logger.prototype.unsubscribe = function (fn) {
+    var i = this._subscribers.indexOf(fn);
+    if (i !== -1) this._subscribers.splice(i, 1);
+  };
 
   /**
    * 追加一条记录。
@@ -133,9 +152,9 @@
       else console.log(line);
     }
 
-    if (this.sink) {
+    for (var i = 0; i < this._subscribers.length; i++) {
       try {
-        this.sink(record);
+        this._subscribers[i](record);
       } catch (e) {
         // UI 侧出错不能影响日志本身
         if (this.echo) console.error('[日志订阅者异常]', e && e.message);
