@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FILES = [
   'payload.test.mjs', 'wire.test.mjs', 'monitor.test.mjs', 'persist.test.mjs',
-  'custom.test.mjs', 'api.test.mjs', 'time.test.mjs', 'conflict.test.mjs',
-  'list.test.mjs', 'tasks.test.mjs',
+  'custom.test.mjs', 'hijack.test.mjs', 'api.test.mjs', 'time.test.mjs',
+  'conflict.test.mjs', 'list.test.mjs', 'tasks.test.mjs',
 ];
 
 let failed = 0;

@@ -83,6 +83,12 @@ _itest_in/
 # 凭证 / 抓包（har.json 可能含 cookie 与学号，绝不入库）
 har.json
 
+# 真机接口返回样本：含学号、真实课表与已选课程，按上文同一原则不入库
+# （测试改用 tests/fixtures/ 下的脱敏小样本）
+docs/teachingTime.do.json
+docs/noArranged.do.json
+docs/programCourse.do.json
+
 
 # ------------------------------------------------------------
 # 五、编辑器与操作系统

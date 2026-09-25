@@ -255,6 +255,8 @@
         credentials: 'include',
         headers: headers,
         body: o.body,
+        // 标记「本脚本发出」，响应接管据此跳过（接管只针对站点自己的请求）
+        __szuSkip: true,
       }).then(function (res) {
         return res.text().then(function (text) {
           var cls = API.classify({ status: res.status, text: text });
