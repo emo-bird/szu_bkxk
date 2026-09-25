@@ -1,0 +1,20 @@
+// ==UserScript==
+// @name         深大选课辅助（Tampermonkey）
+// @namespace    https://github.com/emo-bird/szu_bkxk
+// @version      0.1.0
+// @description  深大选课站点：课程列表增强、抢课任务悬浮窗、自定义课程与课表显示（仅供技术学习研究）
+// @author       emo-bird
+// @match        http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*
+// @run-at       document-idle
+// @grant        none
+// @noframes
+// @homepageURL  https://github.com/emo-bird/szu_bkxk
+// ==/UserScript==
+//
+// 【本文件是构建输入，不是可直接安装的脚本】
+//   - 这里是元数据头的唯一来源（@version 也在此处维护，构建时会把它注入到代码里的版本占位符）。
+//   - 真正的安装脚本由 `node build/build.mjs` 生成到 `dist/szu_bkxk.user.js`。
+//
+// 【为什么 @grant none】
+//   只有页面上下文才能：复用站点自带的 jQuery/BH_UTILS、读 sessionStorage 的 token、
+//   以及 hook fetch/XHR 做被动取数。代价是拿不到 GM_* API，改用 localStorage。
