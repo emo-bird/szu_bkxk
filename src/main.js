@@ -77,6 +77,12 @@
           return panel.settings;
         },
       });
+      // 课程数据缓存（被动采集的落地处，M3 的数据层）
+      var courseCache = NS.courseCache.create({ store: store, logger: logger });
+      if (courseCache.size() > 0) {
+        logger.info(NS.log.CATEGORY.SYSTEM, '已载入本地课程缓存 ' + courseCache.size() + ' 条');
+      }
+
       // 任务管理界面（插在"会话"与"设置"之间）
       var taskView = null;
       if (NS.ui.tasks) {
@@ -90,23 +96,31 @@
 
       // 自定义课程（M4）：只存 localStorage，参与冲突计算
       if (NS.ui.customCourses) {
-        var customView = NS.ui.customCourses.create({ doc: doc, store: store, logger: logger });
+        var customView = NS.ui.customCourses.create({
+          doc: doc,
+          store: store,
+          logger: logger,
+          // 让自定义课程能跟"被动采集到的站点课程"比冲突
+          getSiteRecords: function () {
+            return courseCache.list();
+          },
+        });
         panel.addSection(customView.element);
       }
 
       // 被动取数（M3 数据层）：只旁听页面自己发出的请求，**不额外发一条请求**
-      var captured = [];
       if (NS.capture && NS.model) {
         NS.capture.install({
           win: root,
           onResponse: function (payload) {
             var records = NS.capture.recordsFromResponse(payload);
             if (records.length === 0) return;
-            captured = NS.model.mergeRecords([captured, records]);
+            var total = courseCache.add(records);
             logger.info(
               NS.log.CATEGORY.QUERY,
-              '旁听到课程数据：本次 ' + records.length + ' 条，累计 ' + captured.length + ' 条'
+              '旁听到课程数据：本次 ' + records.length + ' 条，累计 ' + total + ' 条'
             );
+            if (customView) customView.refresh(); // 站点课程变了，冲突要重算
           },
         });
         logger.info(NS.log.CATEGORY.SYSTEM, '已开始被动旁听课程数据（不发额外请求）');
@@ -128,8 +142,9 @@
         http: http,
         runner: runner,
         courses: function () {
-          return captured.slice();
+          return courseCache.list();
         },
+        courseCache: courseCache,
       };
     } catch (e) {
       try {

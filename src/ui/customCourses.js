@@ -93,6 +93,7 @@
     var doc = options.doc;
     var store = options.store;
     var logger = options.logger;
+    var getSiteRecords = typeof options.getSiteRecords === 'function' ? options.getSiteRecords : null;
 
     var courses = store ? NS.customCourse.normalizeList(store.getCustomCourses()) : [];
 
@@ -195,8 +196,22 @@
         list.appendChild(el(doc, 'div', 'szubkxk-muted', '暂无自定义课程'));
         return;
       }
-      var counts = CV.conflictCounts(courses);
+      // 冲突：有 NS.conflict 时同时算"与站点课程"和"与其它自定义课程"；否则退回只算自定义
+      var report = null;
+      var counts = null;
+      if (NS.conflict) {
+        report = NS.conflict.analyze({
+          siteRecords: getSiteRecords ? getSiteRecords() : [],
+          customCourses: courses,
+        });
+      } else {
+        counts = CV.conflictCounts(courses);
+      }
+
       courses.forEach(function (course) {
+        var entry = report ? report.byCustomId[course.id] || null : null;
+        var siteN = entry ? entry.withSite.length : 0;
+        var customN = entry ? entry.withCustom.length : counts[course.id] || 0;
         var row = el(doc, 'div', 'szubkxk-task');
         var line1 = el(doc, 'div', 'szubkxk-task-line');
         var dot = el(doc, 'span', null, '●');
@@ -212,8 +227,13 @@
         row.appendChild(line2);
 
         var line3 = el(doc, 'div', 'szubkxk-task-line');
-        if (counts[course.id] > 0) {
-          line3.appendChild(el(doc, 'span', 'szubkxk-warn', '与 ' + counts[course.id] + ' 门自定义课程冲突'));
+        if (siteN > 0) {
+          line3.appendChild(el(doc, 'span', 'szubkxk-warn', '与站点课程冲突 ' + siteN + ' 处'));
+        }
+        if (customN > 0) {
+          line3.appendChild(
+            el(doc, 'span', 'szubkxk-warn', (siteN > 0 ? '；' : '') + '与 ' + customN + ' 门自定义课程冲突')
+          );
         }
         var btnDel = el(doc, 'button', 'szubkxk-btn szubkxk-danger', '删除');
         btnDel.type = 'button';
