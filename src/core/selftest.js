@@ -74,6 +74,7 @@
           'model',
           'capture',
           'courseCache',
+          'query',
           'diagnostics',
           'selftest',
           'ui',
@@ -214,6 +215,25 @@
         });
         eq(report.byCustomId.c1.withSite.length, 1, '应检出与站点课程的冲突');
         eq(report.bySiteId.T1.length, 1, '反向索引应可查');
+      },
+    },
+    {
+      name: '课程检索：排序稳定且取不到的恒排最后',
+      fn: function () {
+        var list = [
+          { teachingClassId: 'A', classCapacity: 50, selectedCount: 45 },
+          { teachingClassId: 'B', classCapacity: null, selectedCount: null },
+          { teachingClassId: 'C', classCapacity: 50, selectedCount: 40 },
+        ];
+        var asc = NS.query.sort(list, 'remain', false).map(function (r) {
+          return r.teachingClassId;
+        });
+        eq(asc, ['A', 'C', 'B'], '升序：未知排最后');
+        var desc = NS.query.sort(list, 'remain', true).map(function (r) {
+          return r.teachingClassId;
+        });
+        eq(desc, ['C', 'A', 'B'], '降序：未知仍排最后');
+        eq(NS.query.filter(list, { onlyFree: true }).length, 2, '只看有余量应排除未知');
       },
     },
     {

@@ -29,6 +29,7 @@ require('../src/core/selftest.js');
 require('../src/data/model.js');
 require('../src/data/capture.js');
 require('../src/data/courseCache.js');
+require('../src/data/query.js');
 require('../src/ui/recon.js');
 
 const NS = globalThis.SZUBKXK;

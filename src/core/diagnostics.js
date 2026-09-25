@@ -79,6 +79,30 @@
     lines.push('课程记录：' + records.length + ' 条（缓存更新时间 ' + D.formatTime(o.updatedAt) + '）');
     lines.push('自定义课程：' + customs.length + ' 门');
 
+    // 名额分布是最能看出"字段解析对不对"的信号：
+    // 若"未知"占了绝大多数，说明站点字段名变了（或余量字段仍为 null），需要排查。
+    if (NS.query) {
+      try {
+        var stats = NS.query.stats(records);
+        lines.push(
+          '名额分布：有余量 ' +
+            stats.free +
+            ' / 已满 ' +
+            stats.full +
+            ' / 未知 ' +
+            stats.unknown +
+            '；MOOC ' +
+            stats.mooc +
+            '；收藏 ' +
+            stats.favorite +
+            '；类别分布 ' +
+            JSON.stringify(stats.byCategory)
+        );
+      } catch (e) {
+        lines.push('名额统计失败：' + ((e && e.message) || e));
+      }
+    }
+
     var report = null;
     if (NS.conflict) {
       try {

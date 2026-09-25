@@ -13,6 +13,7 @@ require('../src/core/time.js');
 require('../src/core/customCourse.js');
 require('../src/core/conflict.js');
 require('../src/data/model.js');
+require('../src/data/query.js');
 require('../src/core/diagnostics.js');
 require('../src/ui/courseData.js');
 
@@ -82,6 +83,18 @@ test('正常输出含统计、逐条明细与标记', () => {
   ok(text.indexOf('教学班 TC1') !== -1, text);
   ok(text.indexOf('有余量') !== -1, text);
   ok(text.indexOf('与自定义课程冲突×1') !== -1, '应标出与自定义课程的冲突：' + text);
+});
+
+test('输出名额分布（字段解析是否正确的关键信号）', () => {
+  const text = D.buildCourseDigest({
+    records: [
+      rec('A'),
+      rec('B', { classCapacity: 50, selectedCount: 50 }),
+      rec('C', { classCapacity: null, selectedCount: null }),
+    ],
+    limit: 1,
+  });
+  ok(text.indexOf('名额分布：有余量 1 / 已满 1 / 未知 1') !== -1, text);
 });
 
 test('超过 limit 时截断并说明', () => {
