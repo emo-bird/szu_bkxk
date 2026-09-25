@@ -1,19 +1,24 @@
 /**
  * 零依赖单测框架（CommonJS，Node 直接运行）。
  *
- * 【为什么不用 jest/vitest】本仓库刻意保持零 npm 依赖，双击 / 一条 node 命令即可跑测试。
+ * 【为什么不用 jest/vitest】本仓库刻意保持零 npm 依赖，一条 node 命令即可跑测试。
  * 【输出纪律】断言结果只看 [OK] / [FAIL]；不要靠肉眼读中文（控制台编码可能乱码）。
  *
+ * 支持同步与异步用例：
+ *   同步用例正常返回即可；异步用例返回 Promise（会等它 settle）。
+ *   tests/run.js 调用 report()，report() 是 async 的，会等所有异步用例结束。
+ *
  * 用法：
- *   const { test, eq, ok, throws, report } = require('./harness.js');
+ *   const { test, section, ok, eq, throws, report } = require('./harness.js');
  *   test('某某行为', () => { eq(1 + 1, 2); });
- *   report();   // 由 tests/run.js 统一调用
+ *   test('异步行为', async () => { await something(); });
  */
 'use strict';
 
 let total = 0;
 let passed = 0;
 const failures = [];
+const pending = [];
 let currentSection = null;
 
 /**
@@ -25,21 +30,34 @@ function section(title) {
   console.log(`\n---- ${title} ----`);
 }
 
+function pass(name) {
+  passed += 1;
+  console.log(`[OK] ${name}`);
+}
+
+function fail(name, e) {
+  failures.push({ name, error: e });
+  console.log(`[FAIL] ${name} -> ${e && e.message ? e.message : e}`);
+}
+
 /**
- * 登记并立即执行一个用例。用例抛异常即视为失败，不中断后续用例。
+ * 登记并立即执行一个用例。用例抛异常（或返回 rejected Promise）即视为失败，不中断后续用例。
  * @param {string} name 用例名
- * @param {Function} fn 用例体（可返回 Promise，但本框架不等待，请写同步用例）
+ * @param {Function} fn 用例体
  */
 function test(name, fn) {
   total += 1;
-  const prefix = currentSection ? '' : '';
+  let result;
   try {
-    fn();
-    passed += 1;
-    console.log(`[OK] ${prefix}${name}`);
+    result = fn();
   } catch (e) {
-    failures.push({ name, error: e });
-    console.log(`[FAIL] ${prefix}${name} -> ${e && e.message ? e.message : e}`);
+    fail(name, e);
+    return;
+  }
+  if (result && typeof result.then === 'function') {
+    pending.push(result.then(() => pass(name), (e) => fail(name, e)));
+  } else {
+    pass(name);
   }
 }
 
@@ -71,8 +89,9 @@ function throws(fn, matcher, msg) {
   }
 }
 
-/** 输出汇总并设置退出码（有失败则非 0，便于 CI/脚本判断）。 */
-function report() {
+/** 输出汇总并设置退出码（有失败则非 0，便于脚本/CI 判断） */
+async function report() {
+  if (pending.length) await Promise.all(pending);
   console.log(`\n共 ${total} 项，通过 ${passed} 项${failures.length ? `，失败 ${failures.length} 项` : ''}`);
   if (failures.length) {
     failures.forEach((f) => console.log(`  [FAIL] ${f.name}`));

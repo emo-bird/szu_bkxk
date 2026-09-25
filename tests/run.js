@@ -3,6 +3,7 @@
  *
  * 用法：node tests/run.js
  * 约定：测试文件用 `require('../src/xxx.js')` 加载被测模块（模块执行时会自挂 globalThis.SZUBKXK）。
+ * 注意：report() 是 async 的；Node 事件循环会等到异步用例结束，无需手动 await。
  */
 'use strict';
 
