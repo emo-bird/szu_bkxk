@@ -1,60 +1,58 @@
 /**
  * P0：优化课程列表显示。
  *
- * 方案（用户指定）：
- *   1. **课程 → 教学班**类别（方案内/推荐/体育/…）：教学班卡片（.cv-course-card）
- *      渲染出来后，把「教学班ID + 两个按钮」注入到**卡片内部**。
- *   2. **直接即教学班**类别（公选/慕课）：表格在「操作」列右侧新增一列
- *      「抢课模块」，该列内显示教学班ID + 两个按钮。
+ * 站点有两种列表形态，分别处理：
+ *   (1) 课程 → 教学班：教学班卡片 .cv-course-card 内，在
+ *       .cv-caption-red（选课说明）与随后的 .cv-caption-text 之间插入模块。
+ *   (2) 直接即教学班（公选/慕课）：在「操作」列右侧新增「抢课模块」列。
  *
- * 【关键事实】站点把教学班数据放在全局 courseDataList[row.index].tcList；
- * 卡片由 openCourseTeacherList() 在点开时渲染进 .cv-row 内部的 <section>。
- * 我们读全局数据 + 用 MutationObserver 在卡片出现时注入。
+ * 模块内容：第一行教学班ID（不换行、占满一行），第二行两个按钮。
+ * 样式刻意从简，融入站点原有界面。
  */
 (function (root) {
   'use strict';
 
   var NS = root.SZUBKXK;
-  var L = (NS.list = NS.list || {});
+  var L = (NS.list = (NS.list || {}));
 
   var CSS_ID = 'szu-bkxk-p0-style';
-  var DONE_ROW = 'data-szu-row';
   var DONE_CARD = 'data-szu-card';
+  var DONE_ROW = 'data-szu-row';
+  var DONE_HEAD = 'data-szu-head';
 
-  /** 各列表容器 id（站点实际使用的）。 */
-  L.BODIES = [
-    'publicBody', 'moocBody', 'programBody', 'unProgramBody', 'recommendBody',
-    'minorBody', 'retakeBody', 'sportBody', 'schoolBody',
-  ];
-
-  /** 直接即教学班的列表（表格形态，需要新增「抢课模块」列）。 */
+  /** 直接即教学班的列表容器 id。 */
   L.DIRECT_BODIES = ['publicBody', 'moocBody'];
+
+  /** 新列宽度（px）。公选课各列是固定像素 + float 布局，用固定值最可控。 */
+  var COL_W = 210;
 
   L.injectStyle = function () {
     if (root.document.getElementById(CSS_ID)) return;
     var style = root.document.createElement('style');
     style.id = CSS_ID;
     style.textContent = [
+      // 行距压缩（用户指定 0.9）
       '.cv-row,.cv-row>div{line-height:.9 !important;}',
-      '.cv-row>div{word-break:break-all;overflow-wrap:anywhere;min-width:0;}',
-      '.cv-row{box-sizing:border-box;}',
-      // 行内/卡片内的「抢课模块」：纵向两行 —— ID 一行，按钮一行
-      '.szu-block{display:block;box-sizing:border-box;padding:3px 5px;margin:2px 0;',
-      'background:#f6f9fd;border-left:3px solid #4a90d9;border-radius:2px;',
-      'font-size:12px;line-height:1.35;}',
-      '.szu-block .szu-id{display:block;color:#3d6ea5;font-family:Consolas,Menlo,monospace;',
-      'word-break:break-all;}',
-      '.szu-block .szu-id .szu-label{color:#8aa4c0;font-family:inherit;}',
-      '.szu-block .szu-ops{display:flex;flex-direction:row;gap:6px;margin-top:3px;}',
-      '.szu-btn{border:1px solid #4a90d9;background:#fff;color:#4a90d9;',
-      'font-size:12px;line-height:1.5;padding:1px 8px;border-radius:3px;cursor:pointer;',
-      'white-space:nowrap;flex:0 0 auto;}',
-      '.szu-btn:hover{background:#4a90d9;color:#fff;}',
-      '.szu-btn.szu-on{background:#4a90d9;color:#fff;}',
-      '.szu-block.szu-full .szu-id{color:#c0392b;}',
-      // 新增的「抢课模块」列（表头 + 单元格）
-      '.szu-head-col{display:inline-block;vertical-align:middle;}',
-      '.cv-setting-col{white-space:normal;}',
+      '.cv-list>.cv-body>.cv-row>div{word-break:break-all;overflow-wrap:anywhere;}',
+
+      // ---- 「抢课模块」容器：纵向两行，样式从简 ----
+      '.szu-block{padding:2px 0;}',
+      '.szu-id{display:block;width:100%;white-space:nowrap;overflow:hidden;',
+      'text-overflow:ellipsis;color:#047ADC;font-size:12px;line-height:1.4;}',
+      '.szu-ops{display:block;margin-top:4px;white-space:nowrap;}',
+      '.szu-ops .szu-btn{margin-right:4px;}',
+
+      // 按钮沿用站点 cv-btn / cv-tag 观感
+      '.szu-btn{display:inline-block;border:1px solid #047ADC;background:#fff;color:#047ADC;',
+      'font-size:12px;line-height:1.5;padding:0 6px;border-radius:8px;cursor:pointer;}',
+      '.szu-btn:hover{background:#047ADC;color:#fff;}',
+      '.szu-btn.szu-on{background:#047ADC;color:#fff;}',
+
+      // ---- 新增的「抢课模块」列（表头 + 单元格同宽，float 对齐）----
+      '.szu-head-col{width:' + COL_W + 'px !important;float:left;}',
+      '.szu-direct-col{width:' + COL_W + 'px !important;float:left;padding:4px 6px;',
+      'box-sizing:border-box;text-align:left;}',
+      '.szu-direct-col .szu-id{font-size:12px;}',
     ].join('');
     (root.document.head || root.document.documentElement).appendChild(style);
   };
@@ -134,18 +132,19 @@
     return true;
   };
 
-  /** 构建「抢课模块」：第一行 ID，第二行两个按钮。 */
+  /**
+   * 「抢课模块」：纵向两行。
+   * 第一行：教学班ID（不换行、占满一行）
+   * 第二行：两个按钮
+   */
   L.buildBlock = function (info) {
     var block = root.document.createElement('div');
-    block.className = 'szu-block' + (String(info.isFull) === '1' ? ' szu-full' : '');
+    block.className = 'szu-block';
 
     var idLine = root.document.createElement('div');
     idLine.className = 'szu-id';
-    var label = root.document.createElement('span');
-    label.className = 'szu-label';
-    label.textContent = '教学班ID：';
-    idLine.appendChild(label);
-    idLine.appendChild(root.document.createTextNode(info.teachingClassID));
+    idLine.setAttribute('title', info.teachingClassID);
+    idLine.textContent = info.teachingClassID;
 
     var ops = root.document.createElement('div');
     ops.className = 'szu-ops';
@@ -176,101 +175,117 @@
     return block;
   };
 
-  /* ------------------------------------------------------------------
-   * 一、课程 → 教学班：注入到教学班卡片内部
-   * ------------------------------------------------------------------ */
+  /* ---------------- 形态一：注入到教学班卡片内部 ---------------- */
 
-  /** 从卡片 DOM 取教学班信息。 */
-  function readCard(card) {
-    var img = card.querySelector('img.collection-img[tcId]');
-    var tcId = (img && img.getAttribute('tcId')) || card.getAttribute('tcId');
-    if (!tcId) {
-      // 兜底：从卡片 id（"<tcId>_courseDiv"）解析
-      var cid = card.getAttribute('id') || '';
-      if (/_courseDiv$/.test(cid)) tcId = cid.replace(/_courseDiv$/, '');
-    }
-    if (!tcId) return null;
-    var titleEl = card.querySelector('.cv-info-title');
-    var placeEl = card.querySelector('[title]');
-    return {
-      teachingClassID: tcId,
-      courseName: NS.util.text(titleEl) || (placeEl ? '' : ''),
-      teacherName: NS.util.text(titleEl),
-      teachingPlace: '',
-      isFull: card.getAttribute('isFull') || '',
-    };
+  function tcIdOfCard(card) {
+    var img = card.querySelector('img.collection-img');
+    var id = img && img.getAttribute('tcId');
+    if (id) return id;
+    id = card.getAttribute('tcId');
+    if (id) return id;
+    var cid = card.getAttribute('id') || '';
+    if (/_courseDiv$/.test(cid)) return cid.replace(/_courseDiv$/, '');
+    return '';
   }
 
-  /** 给单个教学班卡片注入「抢课模块」。 */
+  /**
+   * 在卡片内定位插入点：.cv-caption-red 之后、紧随的 .cv-caption-text 之前。
+   * 找不到 cv-caption-red 时，退化为「选课说明」那个 div（同样用 cv-caption-text 定位）。
+   */
+  function insertPointInCard(card) {
+    var info = card.querySelector('.cv-info');
+    if (!info) return null;
+    var kids = [];
+    for (var i = 0; i < info.childNodes.length; i++) {
+      if (info.childNodes[i].nodeType === 1) kids.push(info.childNodes[i]);
+    }
+    // 找 cv-caption-red（选课说明有内容时）
+    for (var j = 0; j < kids.length; j++) {
+      var cls = kids[j].getAttribute('class') || '';
+      if (cls.indexOf('cv-caption-red') !== -1) {
+        return { parent: info, before: kids[j + 1] || null };
+      }
+    }
+    // 退化：找含「选课说明」文字的 div
+    for (var k = 0; k < kids.length; k++) {
+      var t = NS.util.text(kids[k]);
+      if (t.indexOf('选课说明') === 0) {
+        return { parent: info, before: kids[k + 1] || null };
+      }
+    }
+    return { parent: info, before: null };
+  }
+
   L.enhanceCard = function (card) {
     if (card.getAttribute(DONE_CARD) === '1') return false;
-    var info = readCard(card);
-    if (!info) return false;
+    var tcId = tcIdOfCard(card);
+    if (!tcId) return false;
+    var point = insertPointInCard(card);
+    if (!point) return false;
     card.setAttribute(DONE_CARD, '1');
-    var block = L.buildBlock(info);
-    // 注入到卡片内部末尾
-    card.appendChild(block);
+
+    var titleEl = card.querySelector('.cv-info-title');
+    var block = L.buildBlock({
+      teachingClassID: tcId,
+      courseName: NS.util.text(titleEl),
+      teacherName: NS.util.text(titleEl),
+    });
+    if (point.before && point.before.parentNode === point.parent) {
+      point.parent.insertBefore(block, point.before);
+    } else {
+      point.parent.appendChild(block);
+    }
     return true;
   };
 
-  /* ------------------------------------------------------------------
-   * 二、直接即教学班（公选/慕课）：在第 12 列右侧新增「抢课模块」列
-   * ------------------------------------------------------------------ */
+  /* ---------------- 形态二：新增「抢课模块」列 ---------------- */
 
-  /** 表头新增「抢课模块」列（插在「操作」之后）。 */
+  /** 表头新增一列；class 用 cv-normal 以抑制站点的排序箭头。 */
   L.ensureHeadColumn = function (bodyId) {
     var body = root.document.getElementById(bodyId);
     if (!body) return false;
     var list = body.closest ? body.closest('.cv-list') : null;
     if (!list) return false;
     var head = list.querySelector('.cv-head');
-    if (!head) return false;
-    if (head.querySelector('.szu-head-col')) return true;
+    if (!head || head.getAttribute(DONE_HEAD) === '1') return false;
+    head.setAttribute(DONE_HEAD, '1');
     var col = root.document.createElement('div');
-    col.className = 'szu-head-col';
+    col.className = 'cv-normal szu-head-col';
     col.textContent = '抢课模块';
     head.appendChild(col);
     return true;
   };
 
-  /** 行内新增「抢课模块」单元格（插在「操作」之后）。 */
+  /** 行内新增单元格：插在「操作」列之后。 */
   L.enhanceDirectRow = function (row) {
     if (row.getAttribute(DONE_ROW) === '1') return false;
-    var choice = row.querySelector('a.cv-choice[tcId]') || row.querySelector('[tcId]');
+    var choice = row.querySelector('a.cv-choice');
+    if (!choice && row.querySelector) choice = row.querySelector('[tcId]');
     if (!choice) return false;
     var tcId = choice.getAttribute('tcId');
     if (!tcId) return false;
-
     var setting = row.querySelector('.cv-setting-col');
     if (!setting) return false;
     row.setAttribute(DONE_ROW, '1');
 
     var titleEl = row.querySelector('.cv-title-col');
     var teacherEl = row.querySelector('.cv-teacher-col');
-    var timeEl = row.querySelector('.cv-time-col span');
-
     var cell = root.document.createElement('div');
     cell.className = 'szu-direct-col';
     cell.appendChild(L.buildBlock({
       teachingClassID: tcId,
       courseName: NS.util.text(titleEl),
       teacherName: NS.util.text(teacherEl),
-      teachingPlace: timeEl ? String(timeEl.getAttribute('title') || timeEl.textContent || '').trim() : '',
-      isFull: choice.getAttribute('isFull') || '',
     }));
-    // 插到「操作」列之后
     if (setting.parentNode) setting.parentNode.insertBefore(cell, setting.nextSibling);
     return true;
   };
 
-  /* ------------------------------------------------------------------
-   * 三、扫描与观察
-   * ------------------------------------------------------------------ */
+  /* ---------------- 扫描 ---------------- */
 
   L.scan = function () {
     var n = 0;
 
-    // 1) 教学班卡片（课程 → 教学班），卡片可能在任何列表容器内
     var cards = root.document.querySelectorAll ? root.document.querySelectorAll('.cv-course-card') : [];
     var cardList = [];
     for (var c = 0; c < cards.length; c++) cardList.push(cards[c]);
@@ -278,7 +293,6 @@
       if (L.enhanceCard(cardList[d])) n++;
     }
 
-    // 2) 直接即教学班的行
     for (var b = 0; b < L.DIRECT_BODIES.length; b++) {
       var body = root.document.getElementById(L.DIRECT_BODIES[b]);
       if (!body) continue;
@@ -290,7 +304,6 @@
         if (L.enhanceDirectRow(list[j])) n++;
       }
     }
-
     return n;
   };
 
