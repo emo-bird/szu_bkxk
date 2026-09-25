@@ -336,3 +336,72 @@ test('recordsFromResponse 把捕获到的响应直接变成记录', () => {
   eq(C.recordsFromResponse({ json: null }), []);
   eq(C.recordsFromResponse(null), []);
 });
+
+section('data/capture.js 原始样本留存');
+
+test('truncateSample 短文本原样返回', () => {
+  eq(C.truncateSample('abc', 100), 'abc');
+  eq(C.truncateSample(null, 100), '');
+});
+
+test('truncateSample 超长时保留头尾并标注', () => {
+  const long = 'H'.repeat(80) + 'M'.repeat(80) + 'T'.repeat(80);
+  const out = C.truncateSample(long, 60);
+  ok(out.length < long.length, '应被截断');
+  ok(out.indexOf('已截断') !== -1, '应标注截断');
+  ok(out.indexOf('H') !== -1 && out.indexOf('T') !== -1, '头尾都要保留');
+});
+
+test('hook 留存样本（含来源、地址、原始长度）', async () => {
+  const { win } = makeWin('{"code":"1","data":{"dataList":[]}}');
+  const h = C.install({ win, onResponse: () => {} });
+  await win.fetch(INTERESTING);
+  await tick();
+  const samples = h.samples();
+  eq(samples.length, 1);
+  eq(samples[0].source, 'fetch');
+  eq(samples[0].url, INTERESTING);
+  ok(samples[0].length > 0, '应记录原始长度');
+  ok(samples[0].text.indexOf('"code":"1"') !== -1);
+});
+
+test('样本数量受 maxSamples 限制，保留最近的', async () => {
+  const { win } = makeWin();
+  const h = C.install({ win, onResponse: () => {}, maxSamples: 2 });
+  await win.fetch(INTERESTING + '&p=1');
+  await tick();
+  await win.fetch(INTERESTING + '&p=2');
+  await tick();
+  await win.fetch(INTERESTING + '&p=3');
+  await tick();
+  const samples = h.samples();
+  eq(samples.length, 2);
+  ok(samples[1].url.indexOf('p=3') !== -1, '应保留最新的');
+});
+
+test('maxSamples=0 时不留存样本', async () => {
+  const { win } = makeWin();
+  const h = C.install({ win, onResponse: () => {}, maxSamples: 0 });
+  await win.fetch(INTERESTING);
+  await tick();
+  eq(h.samples(), []);
+});
+
+test('clearSamples 清空样本', async () => {
+  const { win } = makeWin();
+  const h = C.install({ win, onResponse: () => {} });
+  await win.fetch(INTERESTING);
+  await tick();
+  eq(h.samples().length, 1);
+  h.clearSamples();
+  eq(h.samples().length, 0);
+});
+
+test('samples() 返回副本，外部改动不影响内部', async () => {
+  const { win } = makeWin();
+  const h = C.install({ win, onResponse: () => {} });
+  await win.fetch(INTERESTING);
+  await tick();
+  h.samples().push({ url: 'fake' });
+  eq(h.samples().length, 1);
+});

@@ -36,12 +36,29 @@
   C.INTERESTING_RE = /\/xsxkapp\/.*(?:programCourse|publicCourse|recommendedCourse|queryCourse|courseResult|volunteered|teachingclass\/capacity)\.do/i;
 
   /**
+   * 保留最近若干条**原始响应文本**，供诊断面板"复制回传"。
+   * 这是在没有真实抓包的情况下确认站点字段形态的唯一途径。
+   */
+  C.MAX_SAMPLES = 5;
+  C.SAMPLE_TEXT_LIMIT = 20000;
+
+  /**
    * 这个 URL 是否值得旁听。
    * @param {string} url 请求地址
    * @returns {boolean}
    */
   C.isInterestingUrl = function (url) {
     return typeof url === 'string' && C.INTERESTING_RE.test(url);
+  };
+
+  /** 截断过长文本，保留头尾（头尾都要，头部有字段名、尾部能看出结构是否完整）。 */
+  C.truncateSample = function (text, limit) {
+    var s = typeof text === 'string' ? text : '';
+    var max = typeof limit === 'number' && limit > 0 ? limit : C.SAMPLE_TEXT_LIMIT;
+    if (s.length <= max) return s;
+    var head = Math.floor(max * 0.7);
+    var tail = max - head;
+    return s.slice(0, head) + '\n…（已截断 ' + (s.length - max) + ' 字符）…\n' + s.slice(s.length - tail);
   };
 
   /**
@@ -73,12 +90,29 @@
 
     var onResponse = typeof options.onResponse === 'function' ? options.onResponse : null;
     var matches = typeof options.matches === 'function' ? options.matches : C.isInterestingUrl;
+    var maxSamples = typeof options.maxSamples === 'number' ? options.maxSamples : C.MAX_SAMPLES;
+    var sampleLimit = typeof options.sampleLimit === 'number' ? options.sampleLimit : C.SAMPLE_TEXT_LIMIT;
     var originals = {};
     var stats = { captured: 0, parseFailed: 0, errors: 0 };
+    var samples = [];
 
     /** 统一处理一条捕获到的响应。 */
     function handle(url, source, text) {
       stats.captured += 1;
+      try {
+        if (maxSamples > 0) {
+          if (samples.length >= maxSamples) samples.shift();
+          samples.push({
+            url: url,
+            source: source,
+            at: Date.now(),
+            length: text ? text.length : 0,
+            text: C.truncateSample(text, sampleLimit),
+          });
+        }
+      } catch (e) {
+        stats.errors += 1;
+      }
       if (!onResponse) return;
       var json = null;
       try {
@@ -163,6 +197,14 @@
     var handleObj = {
       installedAt: Date.now(),
       stats: stats,
+      /** 最近捕获到的原始响应样本（副本）。 */
+      samples: function () {
+        return samples.slice();
+      },
+      /** 清空样本。 */
+      clearSamples: function () {
+        samples = [];
+      },
       /** 卸载 hook 并还原页面原始方法。 */
       uninstall: function () {
         try {
