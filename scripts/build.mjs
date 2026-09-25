@@ -10,7 +10,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SIZE_LIMIT = 100 * 1024;
 
 /** 拼接顺序即依赖顺序。 */
-const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'list.js', 'main.js'];
+const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'tasks.js', 'list.js', 'ui.js', 'main.js'];
 
 const header = readFileSync(join(ROOT, 'src', 'userscript-header.txt'), 'utf8').trimEnd();
 

@@ -25,6 +25,17 @@ export function ok(value, label) {
   if (!value) throw new Error(label || 'ok 断言失败');
 }
 
+/** 内存版 Storage —— 让 settings()/saveSettings 在测试里真正生效。 */
+function memStore() {
+  const d = {};
+  return {
+    getItem(k) { return k in d ? d[k] : null; },
+    setItem(k, v) { d[k] = String(v); },
+    removeItem(k) { delete d[k]; },
+    clear() { for (const k in d) delete d[k]; },
+  };
+}
+
 /**
  * 把 src 各模块按顺序拼接后在一个隔离上下文中求值，返回挂好的 SZUBKXK 命名空间。
  * 这样测试跑的就是真正会打包进产物、且在浏览器里运行的那份代码。
@@ -32,7 +43,7 @@ export function ok(value, label) {
  * 传入 docMock 时，把该对象作为 document 注入（供 list/intercept 的 DOM 用例使用）。
  */
 export function loadNS(docMock) {
-  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'list.js'];
+  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'tasks.js', 'list.js'];
   const src = MODULES.map((m) => readFileSync(join(ROOT, 'src', m), 'utf8')).join('\n');
 
   const sandbox = {
@@ -53,9 +64,9 @@ export function loadNS(docMock) {
     parseInt,
     encodeURIComponent,
     decodeURIComponent,
-    localStorage: null,
+    localStorage: memStore(),
     document: docMock || null,
-    sessionStorage: docMock ? docMock._sessionStorage || null : null,
+    sessionStorage: (docMock && docMock._sessionStorage) || memStore(),
     location: { pathname: '/' },
     fetch: null,
     XMLHttpRequest: function () { this.addEventListener = function () {}; },
@@ -77,12 +88,9 @@ export function loadNS(docMock) {
   // 测试钩子：读写站点全局 courseDataList（list.js 的真实数据源）
   sandbox.SZUBKXK.__setCourseDataList = (v) => { sandbox.courseDataList = v; };
   sandbox.SZUBKXK.__setSession = (map) => {
-    sandbox.sessionStorage = {
-      _d: map || {},
-      getItem(k) { return k in this._d ? this._d[k] : null; },
-      setItem(k, v) { this._d[k] = String(v); },
-      removeItem(k) { delete this._d[k]; },
-    };
+    const st = memStore();
+    Object.keys(map || {}).forEach((k) => st.setItem(k, map[k]));
+    sandbox.sessionStorage = st;
   };
   return sandbox.SZUBKXK;
 }

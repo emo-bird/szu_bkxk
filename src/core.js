@@ -56,6 +56,12 @@
     batchCode: '',
     monitorMode: 'category',
     monitorCategory: 'FANKC',
+    // P1
+    retryMode: 'smart',
+    retryIntervalMs: 1500,
+    pollIntervalMs: 5000,
+    panelPos: null,
+    panelCollapsed: false,
   };
 
   NS.settings = function () {

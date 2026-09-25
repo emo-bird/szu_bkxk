@@ -25,10 +25,11 @@
       batchCode: s.batchCode || '(空，待自动获取)',
     });
 
-    // 选课页：P0 课程列表优化
+    // 选课页：P0 课程列表优化 + P1 悬浮窗
     if (/default\/grablessons\.do/.test(path)) {
       ready(function () {
         NS.list.start();
+        NS.ui.start();
       });
       return;
     }

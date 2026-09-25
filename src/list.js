@@ -163,6 +163,10 @@
     return ctx.batchCode ? { code: ctx.batchCode } : null;
   };
 
+  /**
+   * 「添加抢课」：**只入队，不立即执行**（用户指定）。
+   * 报文始终打印（便于核对）；是否真发由写接口开关决定（红线①）。
+   */
   L.addGrab = function (info) {
     var s = NS.settings();
     var ctx = L.sessionContext();
@@ -179,21 +183,28 @@
       url: url, body: body, 课程: info.courseName, 教学班ID: info.teachingClassID,
       类别: info.category || '(未知)',
     });
+
     if (!info.category) {
-      toast('未能识别该教学班的类别代码，报文可能无效，请反馈此情况。');
-      NS.warn('教学班类别未知', { 教学班ID: info.teachingClassID });
+      NS.warn('该教学班的类别代码未识别，任务可能无法执行', { 教学班ID: info.teachingClassID });
     }
-    if (!ctx.batchCode) {
-      toast('缺少选课批次码（batchCode），报文可能无效。');
-      NS.warn('缺少 batchCode');
-    }
-    if (!NS.isWriteAllowed(s)) {
-      toast('写接口未开启，仅打印报文。开启后才会真正发送。');
-      NS.warn('写接口未开启，「添加抢课」只构造并打印报文', { 教学班ID: info.teachingClassID });
+
+    var task = NS.tasks.add({
+      teachingClassID: info.teachingClassID,
+      courseName: info.courseName,
+      teacherName: info.teacherName,
+      category: info.category || '',
+    });
+    if (!task) {
+      toast('该教学班已在任务列表中');
       return false;
     }
-    NS.info('已加入抢课队列（执行留待后续）', info.teachingClassID);
-    toast('已加入抢课任务：' + (info.courseName || info.teachingClassID));
+    if (!NS.isWriteAllowed(s)) {
+      toast('已加入任务列表（写接口未开启，暂时不会发请求）');
+      NS.warn('写接口未开启，任务已入队但不执行');
+    } else {
+      toast('已加入任务列表：' + (info.courseName || info.teachingClassID));
+    }
+    if (NS.ui) NS.ui.render();
     return true;
   };
 
