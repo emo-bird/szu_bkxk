@@ -54,6 +54,14 @@ test('maxQueueSize 与 logLimit 钳位', () => {
   eq(NS.store.normalizeSettings({ logLimit: 999999 }).settings.logLimit, 5000);
 });
 
+test('requestTimeoutSeconds 钳位到 [3, 60]，默认 10', () => {
+  eq(NS.store.normalizeSettings({}).settings.requestTimeoutSeconds, 10);
+  eq(NS.store.normalizeSettings({ requestTimeoutSeconds: 1 }).settings.requestTimeoutSeconds, 3);
+  eq(NS.store.normalizeSettings({ requestTimeoutSeconds: 999 }).settings.requestTimeoutSeconds, 60);
+  eq(NS.store.normalizeSettings({ requestTimeoutSeconds: 'abc' }).settings.requestTimeoutSeconds, 10);
+  eq(NS.store.normalizeSettings({ requestTimeoutSeconds: 20 }).settings.requestTimeoutSeconds, 20);
+});
+
 test('拼错的键被收集到 unknownKeys（"改了没生效"要能查出来）', () => {
   const r = NS.store.normalizeSettings({ writeApiEnable: true, interval: 100 });
   eq(r.unknownKeys.sort(), ['interval', 'writeApiEnable']);

@@ -54,6 +54,31 @@
       });
       panel.mount();
 
+      // ---- 请求链路：限流队列 → 唯一 HTTP 出口 → 任务执行器 ----
+      // 这一步只是"装配"，不会发任何请求；任务要用户显式点开始才会跑。
+      var clock = new NS.schedule.Clock();
+      var queue = new NS.queue.RequestQueue({
+        intervalMs: settings.requestIntervalMs,
+        maxQueueSize: settings.maxQueueSize,
+      });
+      var http = new NS.http.HttpClient({
+        queue: queue,
+        logger: logger,
+        clock: clock,
+        timeoutMs: settings.requestTimeoutSeconds * 1000,
+      });
+      var runner = new NS.runner.Runner({
+        http: http,
+        clock: clock,
+        logger: logger,
+        store: store,
+        // 以面板里的当前设置为准，用户改完立即生效
+        getSettings: function () {
+          return panel.settings;
+        },
+      });
+      runner.load();
+
       if (NS.ui.recon) {
         var facts = NS.ui.recon.collect(root);
         logger.info(NS.log.CATEGORY.RECON, '页面侦察结果（可复制回传）', NS.ui.recon.format(facts));
@@ -65,6 +90,10 @@
         store: store,
         logger: logger,
         panel: panel,
+        clock: clock,
+        queue: queue,
+        http: http,
+        runner: runner,
       };
     } catch (e) {
       try {

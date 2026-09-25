@@ -47,6 +47,8 @@
     maxQueueSize: 10,
     // 任务默认轮询间隔，不得低于 requestIntervalMs
     pollIntervalMs: 1500,
+    // 单条 http 请求超时（秒）
+    requestTimeoutSeconds: 10,
     // 面板日志条数上限
     logLimit: 500,
     // 课程卡片改造开关
@@ -132,6 +134,7 @@
     // 轮询间隔不得低于全局请求间隔
     out.pollIntervalMs = NS.util.clamp(raw.pollIntervalMs, out.requestIntervalMs, NS.queue.INTERVAL_MAX_MS, d.pollIntervalMs);
     out.logLimit = NS.util.clamp(raw.logLimit, 50, 5000, d.logLimit);
+    out.requestTimeoutSeconds = NS.util.clamp(raw.requestTimeoutSeconds, 3, 60, d.requestTimeoutSeconds);
 
     // 面板坐标允许为 null（表示"未设置，用默认位置"）
     var numOrNull = function (v) {
