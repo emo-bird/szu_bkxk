@@ -525,13 +525,11 @@
       U.render();
       if (NS.timetable) NS.timetable.render();
     }));
-    bar2.appendChild(button('刷新课表标记', '', function () {
+    bar2.appendChild(button('刷新课表注入', '', function () {
       if (!NS.timetable) return;
-      var n = NS.timetable.tagCustom();
-      U.toast(n ? ('已标记 ' + n + ' 张卡片') : '未找到可标记的卡片（请到课表页，并确认课表接管已开启）');
+      var n = NS.timetable.render();
+      U.toast(n ? ('已注入 ' + n + ' 段') : '未找到课表容器（请到课表页使用）');
     }));
-    bar2.appendChild(el('span', 'szu-p-msg',
-      '课表里的自定义课程由「课表注入」直接写进站点返回，本站只负责打【自定义】标签。'));
     frag.appendChild(bar2);
 
     return frag;
