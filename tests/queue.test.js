@@ -15,52 +15,7 @@ require('../src/core/queue.js');
 const NS = globalThis.SZUBKXK;
 const { RequestQueue, QueueFullError, PRIORITY } = NS.queue;
 
-/** 推进微任务队列，让 async 调度链跑完。 */
-const drain = () => new Promise((r) => setImmediate(r));
-
-/**
- * 虚拟时钟：timers.now() 返回虚拟时间，advance(ms) 按到期顺序依次触发定时器。
- * 每次触发后 drain 一次，保证 _runOne 的 promise 链推进完毕。
- */
-function makeClock() {
-  let now = 0;
-  let nextId = 1;
-  const timers = new Map();
-  return {
-    now: () => now,
-    timerCount: () => timers.size,
-    timers: {
-      now: () => now,
-      setTimeout: (fn, delay) => {
-        const id = nextId++;
-        timers.set(id, { at: now + Math.max(0, delay || 0), fn });
-        return id;
-      },
-      clearTimeout: (id) => {
-        timers.delete(id);
-      },
-    },
-    async advance(ms) {
-      const target = now + ms;
-      await drain();
-      for (;;) {
-        let pick = null;
-        for (const [id, t] of timers) {
-          if (t.at <= target && (pick === null || t.at < pick.t.at || (t.at === pick.t.at && id < pick.id))) {
-            pick = { id, t };
-          }
-        }
-        if (!pick) break;
-        timers.delete(pick.id);
-        now = pick.t.at;
-        pick.t.fn();
-        await drain();
-      }
-      now = target;
-      await drain();
-    },
-  };
-}
+const { makeClock } = require('./fakeclock.js');
 
 /** 把 promise 转成 {ok, value|error}，避免未处理的 rejection。 */
 function settle(p) {
