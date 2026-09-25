@@ -23,9 +23,6 @@
   /** 直接即教学班的列表容器 id。 */
   L.DIRECT_BODIES = ['publicBody', 'moocBody'];
 
-  /** 新列宽度（px）。公选课各列是固定像素 + float 布局，用固定值最可控。 */
-  var COL_W = 210;
-
   L.injectStyle = function () {
     if (root.document.getElementById(CSS_ID)) return;
     var style = root.document.createElement('style');
@@ -35,24 +32,34 @@
       '.cv-row,.cv-row>div{line-height:.9 !important;}',
       '.cv-list>.cv-body>.cv-row>div{word-break:break-all;overflow-wrap:anywhere;}',
 
-      // ---- 「抢课模块」容器：纵向两行，样式从简 ----
+      // ---- 公选/慕课：表头与行改用 flex，新增列吃掉剩余横向空间 ----
+      // 站点是 float + 固定像素宽度，各列合计已占满大部分宽度；
+      // 直接追加一个定宽 float 列会因放不下而换行。改 flex 后：
+      //   站点各列 flex:0 1 auto → 保持原有像素宽度（外观不变）
+      //   新增列   flex:1 1 auto → 吃掉剩余空间，永不换行
+      '.szu-flex-head{display:flex;flex-wrap:nowrap;align-items:flex-start;}',
+      '#publicBody>.cv-row,#moocBody>.cv-row{display:flex;flex-wrap:nowrap;align-items:flex-start;}',
+      '.szu-flex-head>div,#publicBody>.cv-row>div,#moocBody>.cv-row>div{float:none;flex:0 1 auto;min-width:0;}',
+      '.szu-flex-head>.szu-head-col,#publicBody>.cv-row>.szu-direct-col,#moocBody>.cv-row>.szu-direct-col{',
+      'flex:1 1 auto;min-width:0;overflow:hidden;box-sizing:border-box;}',
+
+      // ---- 「抢课模块」：纵向两行 ----
       '.szu-block{padding:2px 0;}',
       '.szu-id{display:block;width:100%;white-space:nowrap;overflow:hidden;',
       'text-overflow:ellipsis;color:#047ADC;font-size:12px;line-height:1.4;}',
       '.szu-ops{display:block;margin-top:4px;white-space:nowrap;}',
       '.szu-ops .szu-btn{margin-right:4px;}',
-
-      // 按钮沿用站点 cv-btn / cv-tag 观感
       '.szu-btn{display:inline-block;border:1px solid #047ADC;background:#fff;color:#047ADC;',
       'font-size:12px;line-height:1.5;padding:0 6px;border-radius:8px;cursor:pointer;}',
       '.szu-btn:hover{background:#047ADC;color:#fff;}',
       '.szu-btn.szu-on{background:#047ADC;color:#fff;}',
 
-      // ---- 新增的「抢课模块」列（表头 + 单元格同宽，float 对齐）----
-      '.szu-head-col{width:' + COL_W + 'px !important;float:left;}',
-      '.szu-direct-col{width:' + COL_W + 'px !important;float:left;padding:4px 6px;',
-      'box-sizing:border-box;text-align:left;}',
-      '.szu-direct-col .szu-id{font-size:12px;}',
+      // ---- 新增列 ----
+      '.szu-head-col{text-align:center;}',
+      '.szu-direct-col{padding:4px 6px;text-align:left;}',
+      // 新列字号略小，确保 21 位教学班ID 能在一行内放下
+      '.szu-direct-col .szu-id{font-size:11px;}',
+      '.szu-direct-col .szu-btn{font-size:11px;padding:0 5px;}',
     ].join('');
     (root.document.head || root.document.documentElement).appendChild(style);
   };
@@ -240,14 +247,24 @@
 
   /* ---------------- 形态二：新增「抢课模块」列 ---------------- */
 
-  /** 表头新增一列；class 用 cv-normal 以抑制站点的排序箭头。 */
+  /**
+   * 表头新增一列。
+   * class 用 cv-normal 抑制站点的排序箭头；加 szu-flex-head 让表头改用 flex，
+   * 与行保持同列宽（站点表头是兄弟节点、无 id，故用标记类定位）。
+   */
   L.ensureHeadColumn = function (bodyId) {
     var body = root.document.getElementById(bodyId);
     if (!body) return false;
     var list = body.closest ? body.closest('.cv-list') : null;
     if (!list) return false;
     var head = list.querySelector('.cv-head');
-    if (!head || head.getAttribute(DONE_HEAD) === '1') return false;
+    if (!head) return false;
+    // 表头可能被站点重建，故类名与列都要按需补齐（幂等）
+    var cls = head.getAttribute('class') || '';
+    if (cls.indexOf('szu-flex-head') === -1) {
+      head.setAttribute('class', (cls + ' szu-flex-head').trim());
+    }
+    if (head.getAttribute(DONE_HEAD) === '1') return false;
     head.setAttribute(DONE_HEAD, '1');
     var col = root.document.createElement('div');
     col.className = 'cv-normal szu-head-col';

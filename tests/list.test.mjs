@@ -240,6 +240,30 @@ test('公选/慕课：表头新增「抢课模块」列，且带 cv-normal（抑
   ok((cols[0].getAttribute('class') || '').includes('cv-normal'), '带 cv-normal');
 });
 
+test('公选/慕课：表头带 szu-flex-head 标记（供 flex 布局对齐用）', () => {
+  const { head, body } = directBody([directRow('T1', '课')]);
+  const NS = loadNS(mkDoc([body]));
+
+  NS.list.ensureHeadColumn('publicBody');
+  ok((head.getAttribute('class') || '').includes('szu-flex-head'), '标记类已加');
+});
+
+test('公选/慕课：表头被站点重建后仍能补回列与标记', () => {
+  const { list, body } = directBody([directRow('T1', '课')]);
+  const NS = loadNS(mkDoc([body]));
+
+  NS.list.ensureHeadColumn('publicBody');
+  // 模拟站点重建表头：新元素，无标记
+  const newHead = mk('div', 'cv-head');
+  newHead.appendChild(mk('div', 'cv-normal cv-normalcv-setting-col', '操作'));
+  list.childNodes = [newHead, body];
+  newHead.parentNode = list;
+
+  ok(NS.list.ensureHeadColumn('publicBody'), '新表头被补上列');
+  ok((newHead.getAttribute('class') || '').includes('szu-flex-head'), '标记类补回');
+  eq(newHead.childNodes.filter((c) => (c.getAttribute('class') || '').includes('szu-head-col')).length, 1);
+});
+
 test('公选/慕课：行内单元格插在「操作」列之后', () => {
   const r = directRow('202620271050199035810', '艺术陶冶与审美体验');
   const { body } = directBody([r]);
