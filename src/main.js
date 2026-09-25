@@ -94,6 +94,24 @@
         panel.addSection(customView.element);
       }
 
+      // 被动取数（M3 数据层）：只旁听页面自己发出的请求，**不额外发一条请求**
+      var captured = [];
+      if (NS.capture && NS.model) {
+        NS.capture.install({
+          win: root,
+          onResponse: function (payload) {
+            var records = NS.capture.recordsFromResponse(payload);
+            if (records.length === 0) return;
+            captured = NS.model.mergeRecords([captured, records]);
+            logger.info(
+              NS.log.CATEGORY.QUERY,
+              '旁听到课程数据：本次 ' + records.length + ' 条，累计 ' + captured.length + ' 条'
+            );
+          },
+        });
+        logger.info(NS.log.CATEGORY.SYSTEM, '已开始被动旁听课程数据（不发额外请求）');
+      }
+
       if (NS.ui.recon) {
         var facts = NS.ui.recon.collect(root);
         logger.info(NS.log.CATEGORY.RECON, '页面侦察结果（可复制回传）', NS.ui.recon.format(facts));
@@ -109,6 +127,9 @@
         queue: queue,
         http: http,
         runner: runner,
+        courses: function () {
+          return captured.slice();
+        },
       };
     } catch (e) {
       try {
