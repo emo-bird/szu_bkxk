@@ -41,6 +41,13 @@ function fail(name, e) {
 }
 
 /**
+ * 单个异步用例的最长真实等待时间。超过即判定失败 ——
+ * 否则一个永不 settle 的用例会让 report() 永远等下去，
+ * 表现为"没有任何汇总输出、退出码还是 0"，把整份测试结果都吞掉。
+ */
+const TEST_TIMEOUT_MS = 5000;
+
+/**
  * 登记并立即执行一个用例。用例抛异常（或返回 rejected Promise）即视为失败，不中断后续用例。
  * @param {string} name 用例名
  * @param {Function} fn 用例体
@@ -55,7 +62,15 @@ function test(name, fn) {
     return;
   }
   if (result && typeof result.then === 'function') {
-    pending.push(result.then(() => pass(name), (e) => fail(name, e)));
+    const settled = result.then(() => pass(name), (e) => fail(name, e));
+    const guard = new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        fail(name, new Error(`用例超时（>${TEST_TIMEOUT_MS}ms），可能是 promise 永不 settle`));
+        resolve();
+      }, TEST_TIMEOUT_MS);
+      if (timer.unref) timer.unref(); // 不阻止让进程正常退出
+    });
+    pending.push(Promise.race([settled, guard]));
   } else {
     pass(name);
   }
