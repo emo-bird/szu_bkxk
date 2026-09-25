@@ -150,7 +150,7 @@
     p.id = PANEL_ID;
 
     var head = el('div', 'szu-p-head');
-    var title = el('span', 'szu-p-title', '深大选课助手');
+    var title = el('span', 'szu-p-title', '深大选课助手 v' + (NS.VERSION || ''));
     var btnCollapse = el('button', undefined, '—');
     var btnClose = el('button', undefined, '×');
     head.appendChild(title);

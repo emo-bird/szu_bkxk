@@ -20,8 +20,8 @@
 build/
 *.spec
 
-# 构建产物（本分支的 dist/szu_bkxk.user.js 由此产出）
-dist/
+# 构建产物：发布走 GitHub raw 自动更新，故入库（要改为不入库就恢复下一行）
+# dist/
 
 # 桌面版运行期设置（本地开关，含用户偏好；本分支用 localStorage 存设置）
 settings.json
@@ -69,7 +69,7 @@ vendor/
 node_modules/
 
 # 本地构建出的单文件脚本（发布时走 Release / 显式 git add -f）
-# dist/ 已在上文随构造产物一并忽略；如需入库请单独 git add -f
+# 已入库，供 GitHub raw 自动更新使用
 
 # 临时校验脚本与离线快照
 _*_check.*

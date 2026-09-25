@@ -9,6 +9,9 @@
 
   var NS = (root.SZUBKXK = root.SZUBKXK || {});
 
+  /** 版本号：由构建脚本从 package.json 注入，勿手改。 */
+  NS.VERSION = '__VERSION__';
+
   NS.LOG = {
     MAX: 300,
     buf: [],

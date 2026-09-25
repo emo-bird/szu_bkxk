@@ -21,7 +21,7 @@
     // 接管必须尽早安装：站点可能在 DOMContentLoaded 前就发请求
     NS.hijack.install();
 
-    NS.info('SZUBKXK v2 已加载', {
+    NS.info('SZUBKXK v' + NS.VERSION + ' 已加载', {
       页面: path,
       写接口: NS.isWriteAllowed(s) ? '开启' : '关闭',
       请求间隔: NS.queue.intervalMs + 'ms',
