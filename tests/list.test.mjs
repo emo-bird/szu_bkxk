@@ -10,7 +10,12 @@ function el(tag) {
   const e = {
     tagName: tag.toUpperCase(), childNodes: [], attrs: {}, _t: '', parentNode: null, nodeType: 1,
     style: {},
-    classList: { _s: new Set(), add(c) { this._s.add(c); }, contains(c) { return this._s.has(c); } },
+    classList: {
+      _s: new Set(),
+      add(c) { this._s.add(c); },
+      remove(c) { this._s.delete(c); },
+      contains(c) { return this._s.has(c); },
+    },
     get textContent() {
       if (!this.childNodes.length) return this._t;
       return this.childNodes.map((c) => c.textContent).join('');

@@ -334,26 +334,67 @@
   function renderMonitor() {
     var frag = root.document.createDocumentFragment();
     var s = NS.settings();
+    var isCat = (s.monitorMode !== 'single');
 
     var bar = el('div', 'szu-p-bar');
-    bar.appendChild(button('立即检查一次', '', function () {
+    bar.appendChild(button('开始监控', '', function () {
+      if (!NS.monitor.items.length) { U.toast('监控列表为空，请先在课程列表点「添加监控」'); return; }
+      NS.monitor.startPolling();
+      U.render();
+    }));
+    bar.appendChild(button('停止监控', 'danger', function () {
+      NS.monitor.stopPolling();
+      U.render();
+    }));
+    bar.appendChild(button('检查一次', '', function () {
       if (!NS.monitor.items.length) { U.toast('监控列表为空'); return; }
-      U.toast('正在检查 ' + NS.monitor.items.length + ' 个教学班…');
-      NS.monitor.checkAll().then(function (rs) {
-        U.toast('检查完成，共 ' + rs.length + ' 条');
+      U.toast('检查中…');
+      NS.monitor.pollOnce().then(function (r) {
+        U.toast('检查完成，命中 ' + (r.hits ? r.hits.length : 0) + ' 个有余量');
         U.render();
       });
     }));
     bar.appendChild(button('清空', 'danger', function () {
+      NS.monitor.stopPolling();
       NS.monitor.items = [];
       U.render();
     }));
     frag.appendChild(bar);
 
-    var info = el('div', undefined, '模式：' + (s.monitorMode === 'category' ? '类别监控（默认）' : '单独监控') +
-      '　间隔：' + NS.util.clamp(s.pollIntervalMs, 1000, 60000, 5000) + 'ms');
-    frag.appendChild(info);
-    frag.appendChild(el('div', 'szu-p-msg', '自动轮询将在下一轮实现；本轮可手动检查。'));
+    // 监控模式
+    var modeRow = el('div', 'szu-p-bar');
+    modeRow.appendChild(el('span', undefined, '模式：'));
+    var ms = el('select');
+    [['category', '类别监控（拉类别列表，一次拿一类）'], ['single', '单独监控（逐课查容量，精确）']].forEach(function (m) {
+      var o = el('option', undefined, m[1]); o.value = m[0]; ms.appendChild(o);
+    });
+    ms.value = s.monitorMode || 'category';
+    ms.addEventListener('change', function () {
+      NS.saveSettings({ monitorMode: ms.value });
+      NS.monitor.stopPolling();
+      U.toast('已切换为' + (ms.value === 'category' ? '类别监控' : '单独监控') + '，轮询已停止');
+      U.render();
+    });
+    modeRow.appendChild(ms);
+    frag.appendChild(modeRow);
+
+    var iv = NS.util.clamp(s.pollIntervalMs, 1000, 60000, 5000);
+    var state = NS.monitor.polling
+      ? ('运行中（' + (isCat ? '类别' : '单独') + '模式，每 ' + iv + 'ms 一轮，已完成 ' + NS.monitor.pollCount + ' 轮，命中 ' + NS.monitor.hitCount + ' 次）')
+      : '未运行';
+    frag.appendChild(el('div', 'szu-p-ok', '轮询状态：' + state));
+    if (NS.monitor.lastPollAt) {
+      frag.appendChild(el('div', 'szu-p-msg', '上次检查：' + new Date(NS.monitor.lastPollAt).toLocaleTimeString()));
+    }
+    frag.appendChild(el('div', 'szu-p-msg', isCat
+      ? '类别监控端点：programCourse.do / publicCourse.do 等；余量 = 课容量 − 已选人数'
+      : '单独监控端点：teachingclass/capacity.do；余量 = mainClassCapacity − mainElectiveNumber'));
+
+    if (!NS.isWriteAllowed(s)) {
+      frag.appendChild(el('div', 'szu-p-warn', '写接口关闭中：命中余量只会提醒，不会自动抢。'));
+    } else {
+      frag.appendChild(el('div', 'szu-p-warn', '⚠ 写接口已开启：命中余量会自动提交抢课请求。'));
+    }
 
     if (!NS.monitor.items.length) {
       frag.appendChild(el('div', 'szu-p-empty', '暂无监控项。到课程列表点「添加监控」加入。'));
@@ -363,16 +404,26 @@
       var l1 = el('div', 'szu-p-row');
       l1.appendChild(el('span', 'szu-p-name', m.courseName || '(未命名)'));
       l1.appendChild(el('span', 'szu-p-id', m.teachingClassID));
-      l1.appendChild(button('移除', 'danger', function () {
+      l1.appendChild(el('span', undefined, NS.api.CATEGORY_NAME[m.category] || m.category || '类别未知'));
+      box.appendChild(l1);
+      var l2 = el('div', 'szu-p-row');
+      l2.appendChild(button('立即抢一次', '', function () {
+        NS.monitor.grabNow(m).then(function (r) {
+          U.toast(r.ok ? '已抢成功' : ('未成功：' + (r.msg || r.reason)));
+          U.render();
+        });
+      }));
+      l2.appendChild(button('移除', 'danger', function () {
         NS.monitor.remove(m.teachingClassID);
         U.render();
       }));
-      box.appendChild(l1);
+      box.appendChild(l2);
       var remain = m.remain;
       var txt = remain === null || remain === undefined
-        ? (m.checkedAt ? '已查过' : '尚未检查')
+        ? (m.checkedAt ? '余量：未能取到（字段缺失或未匹配到该教学班）' : '尚未检查')
         : ('余量 ' + remain + (remain > 0 ? '（有空位）' : '（已满）'));
       box.appendChild(el('div', 'szu-p-msg' + (remain > 0 ? ' ok' : ''), txt));
+      if (m.lastMsg) box.appendChild(el('div', 'szu-p-msg err', m.lastMsg));
       frag.appendChild(box);
     });
     return frag;

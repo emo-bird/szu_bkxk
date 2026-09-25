@@ -7,7 +7,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SIZE_LIMIT = 100 * 1024;
+/** 体积上限已按用户要求移除，只报告不拦截。 */
+const SIZE_WARN = 150 * 1024;
 
 /** 拼接顺序即依赖顺序。 */
 const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'tasks.js', 'list.js', 'ui.js', 'main.js'];
@@ -31,8 +32,8 @@ const bytes = Buffer.byteLength(out, 'utf8');
 const kb = (bytes / 1024).toFixed(1);
 console.log(`✔ 构建完成 dist/szu_bkxk.user.js  ${bytes} 字节 (${kb} KB)`);
 console.log(`  模块: ${MODULES.length} 个`);
-if (bytes > SIZE_LIMIT) {
-  console.error(`✘ 体积超限：${kb} KB > ${SIZE_LIMIT / 1024} KB`);
-  process.exit(1);
+if (bytes > SIZE_WARN) {
+  console.log(`  ⚠ 体积偏大（> ${SIZE_WARN / 1024} KB），但仍会产出（已按要求移除上限）`);
+} else {
+  console.log('✔ 体积正常（无上限约束）');
 }
-console.log(`✔ 体积合规（上限 ${SIZE_LIMIT / 1024} KB，余量 ${((SIZE_LIMIT - bytes) / 1024).toFixed(1)} KB）`);

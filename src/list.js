@@ -80,8 +80,9 @@
       '.szu-ops .szu-btn{margin-right:4px;}',
       '.szu-btn{display:inline-block;border:1px solid #047ADC;background:#fff;color:#047ADC;',
       'font-size:12px;line-height:1.5;padding:0 6px;border-radius:8px;cursor:pointer;}',
-      '.szu-btn:hover{background:#047ADC;color:#fff;}',
-      '.szu-btn.szu-on{background:#047ADC;color:#fff;}',
+      // 悬停用浅色，**刻意区别于选中态** —— 否则鼠标还停在按钮上时看不出状态已切换
+      '.szu-btn:hover{background:#e8f2fd;}',
+      '.szu-btn.szu-on{background:#047ADC;color:#fff;border-color:#047ADC;}',
 
       // ---- 新增列 ----
       '.szu-head-col{text-align:center;}',
@@ -234,6 +235,15 @@
     return true;
   };
 
+  /** 让监控按钮的文字与配色反映当前状态。 */
+  function syncMonBtn(btn, tcId) {
+    var on = NS.monitor.has(tcId);
+    btn.textContent = on ? '移除监控' : '添加监控';
+    if (on) btn.classList.add('szu-on');
+    else btn.classList.remove('szu-on');
+  }
+  L.syncMonBtn = syncMonBtn;
+
   /**
    * 「抢课模块」：纵向两行。
    * 第一行：教学班ID（不换行、占满一行）
@@ -262,14 +272,13 @@
 
     var monBtn = root.document.createElement('button');
     monBtn.className = 'szu-btn';
-    monBtn.textContent = '添加监控';
-    if (NS.monitor.has(info.teachingClassID)) monBtn.classList.add('szu-on');
+    // 按钮文字直接反映状态，避免「蓝了不知道再点会取消」的困惑
+    syncMonBtn(monBtn, info.teachingClassID);
     monBtn.addEventListener('click', function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
-      // 可反悔：再点一次即移除，按钮颜色变回
-      if (L.addMonitor(info)) monBtn.classList.add('szu-on');
-      else monBtn.classList.remove('szu-on');
+      L.addMonitor(info); // 已在列表中则移除
+      syncMonBtn(monBtn, info.teachingClassID);
     });
 
     ops.appendChild(grabBtn);
