@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         深大选课助手 v2
 // @namespace    https://github.com/szu-bkxk
-// @version      2.0.0
+// @version      2.0.1
 // @description  深大选课站点辅助工具（课程列表优化 / 抢课任务 / 容量监控）。仅供技术学习研究，使用风险自负。
 // @author       szu_bkxk
-// @match        http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/default/grablessons.do*
-// @match        http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/default/curriculum.do*
+// @match        http://bkxk.szu.edu.cn/*
+// @match        https://bkxk.szu.edu.cn/*
 // @grant        none
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
