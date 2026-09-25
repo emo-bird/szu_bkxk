@@ -14,7 +14,7 @@
 
   var PANEL_ID = 'szu-panel';
   var STYLE_ID = 'szu-panel-style';
-  var TAB = { TASK: 'task', MONITOR: 'monitor', SETTING: 'setting', LOG: 'log' };
+  var TAB = { TASK: 'task', MONITOR: 'monitor', CUSTOM: 'custom', SETTING: 'setting', LOG: 'log' };
   var currentTab = TAB.TASK;
 
   function el(tag, cls, text) {
@@ -161,6 +161,7 @@
     var tabDefs = [
       [TAB.TASK, '任务'],
       [TAB.MONITOR, '监控'],
+      [TAB.CUSTOM, '自定义'],
       [TAB.SETTING, '设置'],
       [TAB.LOG, '日志'],
     ];
@@ -429,6 +430,111 @@
     return frag;
   }
 
+  function renderCustom() {
+    var frag = root.document.createDocumentFragment();
+
+    frag.appendChild(el('div', 'szu-p-sec', '新增自定义课程'));
+    frag.appendChild(el('div', 'szu-p-msg',
+      '时间写法示例：5-18周 星期二 3-4节 致理楼L1-707（逗号可分隔多段；' +
+      '单周写 (单)、双周写 (双)）'));
+
+    var nameIn = root.document.createElement('input');
+    nameIn.type = 'text';
+    nameIn.placeholder = '课程名';
+    nameIn.style.width = '100%';
+    var teacherIn = root.document.createElement('input');
+    teacherIn.type = 'text';
+    teacherIn.placeholder = '教师（可空）';
+    teacherIn.style.width = '100%';
+    var placeIn = root.document.createElement('input');
+    placeIn.type = 'text';
+    placeIn.placeholder = '时间地点';
+    placeIn.style.width = '100%';
+
+    [nameIn, teacherIn, placeIn].forEach(function (i) {
+      var row = el('div', 'szu-p-row');
+      row.style.margin = '3px 0';
+      row.appendChild(i);
+      frag.appendChild(row);
+    });
+
+    var addBar = el('div', 'szu-p-bar');
+    addBar.appendChild(button('添加', '', function () {
+      var name = String(nameIn.value || '').trim();
+      var place = String(placeIn.value || '').trim();
+      if (!name) { U.toast('请填课程名'); return; }
+      if (!place) { U.toast('请填时间地点'); return; }
+      if (!NS.time.parse(place).length) {
+        U.toast('时间格式无法解析，请按示例填写（如 5-18周 星期二 3-4节 地点）');
+        return;
+      }
+      NS.custom.add({ name: name, teacher: String(teacherIn.value || '').trim(), place: place });
+      nameIn.value = '';
+      teacherIn.value = '';
+      placeIn.value = '';
+      U.toast('已添加');
+      U.render();
+      if (NS.timetable) NS.timetable.render();
+    }));
+    frag.appendChild(addBar);
+
+    var sc = NS.custom.selfConflicts();
+    if (sc.length) {
+      frag.appendChild(el('div', 'szu-p-warn',
+        '注意：自定义课程之间有 ' + sc.length + ' 处时间冲突'));
+    }
+
+    frag.appendChild(el('div', 'szu-p-sec', '已添加（' + NS.custom.items.length + ' 门）'));
+    if (!NS.custom.items.length) {
+      frag.appendChild(el('div', 'szu-p-empty', '暂无自定义课程。到课表页也会显示这些课。'));
+    }
+    NS.custom.items.forEach(function (c) {
+      var box = el('div', 'szu-p-task');
+      var l1 = el('div', 'szu-p-row');
+      var cb = root.document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = c.enabled;
+      cb.addEventListener('change', function () {
+        NS.custom.update(c.id, { enabled: cb.checked });
+        U.render();
+        if (NS.timetable) NS.timetable.render();
+      });
+      l1.appendChild(cb);
+      l1.appendChild(el('span', 'szu-p-name', c.name));
+      if (c.segs.length) {
+        l1.appendChild(el('span', undefined, '解析出 ' + c.segs.length + ' 段'));
+      } else {
+        l1.appendChild(el('span', 'szu-p-msg err', '时间未解析'));
+      }
+      box.appendChild(l1);
+      box.appendChild(el('div', 'szu-p-msg', (c.teacher ? c.teacher + '　' : '') + c.place));
+      var l2 = el('div', 'szu-p-row');
+      l2.appendChild(button('删除', 'danger', function () {
+        NS.custom.remove(c.id);
+        U.render();
+        if (NS.timetable) NS.timetable.render();
+      }));
+      box.appendChild(l2);
+      frag.appendChild(box);
+    });
+
+    var bar2 = el('div', 'szu-p-bar');
+    bar2.appendChild(button('清空全部', 'danger', function () {
+      if (root.confirm && !root.confirm('确定清空全部自定义课程？')) return;
+      NS.custom.clear();
+      U.render();
+      if (NS.timetable) NS.timetable.render();
+    }));
+    bar2.appendChild(button('刷新课表注入', '', function () {
+      if (!NS.timetable) return;
+      var n = NS.timetable.render();
+      U.toast(n ? ('已注入 ' + n + ' 段') : '未找到课表容器（请到课表页使用）');
+    }));
+    frag.appendChild(bar2);
+
+    return frag;
+  }
+
   function renderSetting() {
     var frag = root.document.createDocumentFragment();
     var s = NS.settings();
@@ -551,8 +657,9 @@
     bodyEl.appendChild(
       currentTab === TAB.TASK ? renderTasks()
         : currentTab === TAB.MONITOR ? renderMonitor()
-          : currentTab === TAB.SETTING ? renderSetting()
-            : renderLog()
+          : currentTab === TAB.CUSTOM ? renderCustom()
+            : currentTab === TAB.SETTING ? renderSetting()
+              : renderLog()
     );
   };
 

@@ -27,6 +27,51 @@
   M.hitCount = 0;
   M._timer = null;
 
+  var STORE_KEY = 'monitor';
+
+  /**
+   * 落盘 / 加载。
+   * 【刻意不存】轮询运行状态（刷新后不自动续跑，红线⑤）与任何凭证（红线③）。
+   * 余量数据也一并存下，刷新后界面仍能看到上次结果。
+   */
+  M.save = function () {
+    var slim = [];
+    for (var i = 0; i < M.items.length; i++) {
+      var m = M.items[i];
+      slim.push({
+        teachingClassID: m.teachingClassID,
+        courseName: m.courseName, teacherName: m.teacherName,
+        teachingPlace: m.teachingPlace, category: m.category,
+        remain: m.remain, checkedAt: m.checkedAt, hits: m.hits,
+        lastMsg: m.lastMsg,
+      });
+    }
+    NS.store.set(STORE_KEY, { items: slim, hitCount: M.hitCount });
+  };
+
+  M.load = function () {
+    var data = NS.store.get(STORE_KEY, null);
+    if (!data || !Array.isArray(data.items)) return 0;
+    M.items = data.items.map(function (m) {
+      return {
+        teachingClassID: String(m.teachingClassID || ''),
+        courseName: m.courseName || '',
+        teacherName: m.teacherName || '',
+        teachingPlace: m.teachingPlace || '',
+        category: m.category || '',
+        remain: typeof m.remain === 'number' ? m.remain : null,
+        checkedAt: m.checkedAt || null,
+        hits: m.hits || 0,
+        lastMsg: m.lastMsg || '',
+      };
+    }).filter(function (m) { return !!m.teachingClassID; });
+    M.hitCount = data.hitCount || 0;
+    // 刷新后一律不处于轮询态
+    M.polling = false;
+    if (M.items.length) NS.info('已恢复 ' + M.items.length + ' 个监控项');
+    return M.items.length;
+  };
+
   M.has = function (tcId) {
     for (var i = 0; i < M.items.length; i++) {
       if (M.items[i].teachingClassID === tcId) return true;
@@ -58,6 +103,7 @@
     };
     void s;
     M.items.push(rec);
+    M.save();
     NS.info('加入监控 ' + rec.teachingClassID, rec.courseName);
     return rec;
   };
@@ -66,10 +112,17 @@
     for (var i = 0; i < M.items.length; i++) {
       if (M.items[i].teachingClassID === tcId) {
         M.items.splice(i, 1);
+        M.save();
         return true;
       }
     }
     return false;
+  };
+
+  M.clear = function () {
+    M.items = [];
+    M.hitCount = 0;
+    M.save();
   };
 
   /** 当前模式。 */
@@ -223,6 +276,7 @@
     item.remain = remain;
     item.checkedAt = Date.now();
     if (remain !== null && remain > 0) item.hits += 1;
+    M.save();
   };
 
   M._hits = function (rows) {
@@ -238,6 +292,7 @@
     var hits = res.hits || [];
     if (hits.length) {
       M.hitCount += hits.length;
+      M.save();
       var summary = hits.map(function (h) {
         var it = M.byId(h.teachingClassID);
         return (it && it.courseName ? it.courseName : h.teachingClassID) + ' 余量' + h.remain;

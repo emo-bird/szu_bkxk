@@ -27,6 +27,10 @@
 
     // 选课页：P0 课程列表优化 + P1 悬浮窗
     if (/default\/grablessons\.do/.test(path)) {
+      // 恢复上次的任务与监控（不自动启动执行，红线⑤）
+      NS.tasks.load();
+      NS.monitor.load();
+      NS.custom.load();
       ready(function () {
         NS.list.start();
         NS.ui.start();
@@ -34,11 +38,20 @@
       return;
     }
 
-    // 课表页：M4 待实现（DOM 已取证于 docs/curriculum.do.html，留待下一轮）
+    // 课表页：M4 注入自定义课程 + 悬浮窗
     if (/default\/curriculum\.do/.test(path)) {
-      NS.info('课表页：M4 尚未实现');
+      NS.custom.load();
+      ready(function () {
+        NS.timetable.start();
+        NS.ui.start();
+      });
       return;
     }
+
+    // 其他页面也恢复数据，便于悬浮窗查看
+    NS.tasks.load();
+    NS.monitor.load();
+    NS.custom.load();
   };
 
   NS.main();

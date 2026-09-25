@@ -43,7 +43,7 @@ function memStore() {
  * 传入 docMock 时，把该对象作为 document 注入（供 list/intercept 的 DOM 用例使用）。
  */
 export function loadNS(docMock) {
-  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'tasks.js', 'list.js'];
+  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'custom.js', 'monitor.js', 'tasks.js', 'list.js', 'timetable.js'];
   const src = MODULES.map((m) => readFileSync(join(ROOT, 'src', m), 'utf8')).join('\n');
 
   const sandbox = {

@@ -50,6 +50,59 @@
   T.running = false;
   T.stopped = false;
 
+  var STORE_KEY = 'tasks';
+
+  /**
+   * 落盘 / 加载。
+   * 只存配置与进度，**不存任何凭证**（红线③）。
+   * 页面刷新时正在跑的请求会丢，故加载时把 running 态复位为 pending。
+   */
+  T.save = function () {
+    var slim = [];
+    for (var i = 0; i < T.items.length; i++) {
+      var t = T.items[i];
+      slim.push({
+        id: t.id, seq: t.seq,
+        teachingClassID: t.teachingClassID,
+        courseName: t.courseName, teacherName: t.teacherName,
+        category: t.category,
+        priority: t.priority, enabled: t.enabled,
+        status: t.status === T.STATUS.RUNNING ? T.STATUS.PENDING : t.status,
+        retryMode: t.retryMode,
+        attempts: t.attempts, lastMsg: t.lastMsg, lastKind: t.lastKind,
+        addedAt: t.addedAt,
+      });
+    }
+    NS.store.set(STORE_KEY, { seq: T.seq, items: slim });
+  };
+
+  T.load = function () {
+    var data = NS.store.get(STORE_KEY, null);
+    if (!data || !Array.isArray(data.items)) return 0;
+    T.items = data.items.map(function (t) {
+      return {
+        id: t.id || ('t' + (++T.seq)),
+        seq: t.seq || 0,
+        teachingClassID: String(t.teachingClassID || ''),
+        courseName: t.courseName || '',
+        teacherName: t.teacherName || '',
+        category: t.category || '',
+        priority: typeof t.priority === 'number' ? t.priority : 0,
+        enabled: t.enabled !== false,
+        // 刷新前正在请求的，复位为等待
+        status: t.status === T.STATUS.RUNNING ? T.STATUS.PENDING : (t.status || T.STATUS.PENDING),
+        retryMode: T.MODE_NAME[t.retryMode] ? t.retryMode : T.MODE.SMART,
+        attempts: t.attempts || 0,
+        lastMsg: t.lastMsg || '',
+        lastKind: t.lastKind || '',
+        addedAt: t.addedAt || Date.now(),
+      };
+    }).filter(function (t) { return !!t.teachingClassID; });
+    T.seq = Math.max(data.seq || 0, T.items.length);
+    if (T.items.length) NS.info('已恢复 ' + T.items.length + ' 个抢课任务');
+    return T.items.length;
+  };
+
   T.retryIntervalMs = function () {
     var s = NS.settings();
     return NS.util.clamp(s.retryIntervalMs, 500, 60000, 1500);
@@ -96,6 +149,7 @@
       addedAt: Date.now(),
     };
     T.items.push(task);
+    T.save();
     NS.info('加入抢课任务 ' + task.teachingClassID, task.courseName);
     return task;
   };
@@ -104,6 +158,7 @@
     for (var i = 0; i < T.items.length; i++) {
       if (T.items[i].id === id) {
         T.items.splice(i, 1);
+        T.save();
         return true;
       }
     }
@@ -115,6 +170,7 @@
     if (!t) return false;
     t.enabled = !t.enabled;
     if (t.enabled && t.status === T.STATUS.FAILED) t.status = T.STATUS.PENDING;
+    T.save();
     return t.enabled;
   };
 
@@ -127,6 +183,7 @@
     var t = T.byId(id);
     if (!t) return false;
     t.priority = NS.util.clamp(p, -1, 1, 0);
+    T.save();
     return true;
   };
 
@@ -135,11 +192,13 @@
     if (!t) return false;
     if (!T.MODE_NAME[mode]) return false;
     t.retryMode = mode;
+    T.save();
     return true;
   };
 
   T.clear = function () {
     T.items = [];
+    T.save();
   };
 
   T.reset = function () {
@@ -148,6 +207,7 @@
       T.items[i].attempts = 0;
       T.items[i].lastMsg = '';
     }
+    T.save();
   };
 
   /** 构造该任务的抢课请求体。 */
@@ -199,6 +259,7 @@
 
         if (kind === NS.api.RESP_KIND.OK) {
           task.status = T.STATUS.SUCCESS;
+          T.save();
           NS.info('抢课成功 ' + task.teachingClassID, task.courseName);
           return { done: true };
         }
@@ -206,6 +267,7 @@
           task.status = T.STATUS.FAILED;
           task.lastMsg = '登录态失效，请刷新页面重新登录';
           T.stopped = true;
+          T.save();
           NS.error('登录态失效，已停止全部任务');
           return { done: true };
         }
@@ -214,10 +276,12 @@
         task.lastKind = cls;
         if (T.shouldRetry(task.retryMode, cls)) {
           task.status = T.STATUS.PENDING;
+          T.save();
           NS.warn('抢课未成功，将继续重试 [' + cls + '] ' + task.lastMsg);
           return { done: false };
         }
         task.status = T.STATUS.FAILED;
+        T.save();
         NS.warn('任务停止：' + task.lastMsg);
         return { done: true };
       })
@@ -227,10 +291,11 @@
         task.lastKind = 'unknown';
         if (T.shouldRetry(task.retryMode, 'unknown')) {
           task.status = T.STATUS.PENDING;
-          return { done: false };
+        } else {
+          task.status = T.STATUS.FAILED;
         }
-        task.status = T.STATUS.FAILED;
-        return { done: true };
+        T.save();
+        return { done: task.status === T.STATUS.FAILED };
       });
   };
 

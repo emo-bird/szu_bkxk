@@ -108,6 +108,41 @@
     return !!(s && s.writeApiEnabled === true);
   };
 
+  /**
+   * 通用的 JSON 持久化（localStorage）。
+   * 只用来存**任务/监控配置**这类非敏感数据 ——
+   * 红线③：**绝不**把 token / cookie / 学号写进来。
+   */
+  var STORE_PREFIX = 'szubkxk.v2.';
+
+  NS.store = {
+    get: function (key, dflt) {
+      try {
+        var raw = root.localStorage && root.localStorage.getItem(STORE_PREFIX + key);
+        if (!raw) return dflt;
+        var v = JSON.parse(raw);
+        return v === undefined || v === null ? dflt : v;
+      } catch (e) {
+        NS.warn('读取存储失败 ' + key, e && e.message);
+        return dflt;
+      }
+    },
+    set: function (key, value) {
+      try {
+        root.localStorage.setItem(STORE_PREFIX + key, JSON.stringify(value));
+        return true;
+      } catch (e) {
+        NS.warn('写入存储失败 ' + key, e && e.message);
+        return false;
+      }
+    },
+    del: function (key) {
+      try {
+        root.localStorage.removeItem(STORE_PREFIX + key);
+      } catch (e) { /* 忽略 */ }
+    },
+  };
+
   /** 请求间隔硬下限（毫秒）。红线②：任何设置都不得更低。 */
   var FLOOR = 200;
   var CEIL = 60000;
