@@ -175,6 +175,9 @@
     lines.push('================ 深大选课辅助 · 诊断回传包 ================');
     lines.push('脚本版本：' + (o.version || '(未知)'));
     lines.push('');
+    lines.push('====== 零、页内自检 ======');
+    lines.push(o.selfTestText || '(未运行)');
+    lines.push('');
     lines.push('====== 一、环境侦察 ======');
     lines.push(o.envText || '(无)');
     lines.push('');
