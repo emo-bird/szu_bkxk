@@ -32,7 +32,7 @@
 node tests/run.js
 
 # 构建单文件油猴脚本 -> dist/szu_bkxk.user.js
-node build/build.mjs
+node scripts/build.mjs
 ```
 
 - **单一事实源**：`@version` 只在 `src/userscript-header.txt` 维护，构建时注入代码中的
@@ -49,7 +49,7 @@ src/
   core/                   纯原生 JS 核心，不依赖站点库
   data/                   被动取数与数据模型
   ui/                     界面（复用站点自带库）
-build/build.mjs           拼接构建
+scripts/build.mjs           拼接构建
 tests/                    离线单测（harness + *.test.js）
 docs/方案-油猴脚本.md      设计与里程碑
 ```

@@ -16,9 +16,12 @@
 # ------------------------------------------------------------
 
 # PyInstaller 打包产物（master 的 build.bat 生成）
+# 注意：本分支的开发脚本刻意放在 scripts/，就是为了避开这个目录名
 build/
-dist/
 *.spec
+
+# 构建产物（本分支的 dist/szu_bkxk.user.js 由此产出）
+dist/
 
 # 桌面版运行期设置（本地开关，含用户偏好；本分支用 localStorage 存设置）
 settings.json
