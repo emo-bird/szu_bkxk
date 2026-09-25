@@ -14,6 +14,7 @@ require('../src/core/customCourse.js');
 require('../src/core/conflict.js');
 require('../src/data/model.js');
 require('../src/data/query.js');
+require('../src/core/timetable.js');
 require('../src/core/diagnostics.js');
 require('../src/ui/courseData.js');
 
@@ -95,6 +96,14 @@ test('输出名额分布（字段解析是否正确的关键信号）', () => {
     limit: 1,
   });
   ok(text.indexOf('名额分布：有余量 1 / 已满 1 / 未知 1') !== -1, text);
+});
+
+test('有自定义课程时输出课表布局摘要', () => {
+  const text = D.buildCourseDigest({
+    records: [],
+    customCourses: [NS.customCourse.normalize({ id: 'c1', name: '重修', sessions: [S(2, 3, 4)] })],
+  });
+  ok(text.indexOf('课表布局：') !== -1, '缺布局摘要：' + text);
 });
 
 test('超过 limit 时截断并说明', () => {

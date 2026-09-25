@@ -75,6 +75,7 @@
           'capture',
           'courseCache',
           'query',
+          'timetable',
           'diagnostics',
           'selftest',
           'ui',
@@ -234,6 +235,27 @@
         });
         eq(desc, ['C', 'A', 'B'], '降序：未知仍排最后');
         eq(NS.query.filter(list, { onlyFree: true }).length, 2, '只看有余量应排除未知');
+      },
+    },
+    {
+      name: '课表布局：只有重叠的课才分列',
+      fn: function () {
+        var mk = function (id, day, ps, pe) {
+          return {
+            id: id,
+            sessions: [{ weekStart: 1, weekEnd: 16, weekParity: 'all', weekday: day, periodStart: ps, periodEnd: pe }],
+          };
+        };
+        // 同一天：一门重叠的课 + 一门完全不相干的课
+        var layout = NS.timetable.buildLayout([mk('A', 2, 1, 2), mk('B', 2, 2, 3), mk('C', 2, 9, 10)]);
+        var byId = {};
+        layout.placements.forEach(function (p) {
+          byId[p.entryId] = p;
+        });
+        assert(byId.A && byId.B && byId.C, '布局缺少课块');
+        eq(byId.A.lanes, 2, 'A 与 B 重叠应分两列');
+        eq(byId.C.lanes, 1, '不相干的 C 不该被挤成两列');
+        eq(byId.C.lane, 0, 'C 应回到第 0 泳道');
       },
     },
     {

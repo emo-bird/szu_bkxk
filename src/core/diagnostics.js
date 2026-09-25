@@ -113,6 +113,16 @@
       }
     }
 
+    // 课表布局摘要：能反映自定义课程的时间有没有解析成正确的星期/节次
+    if (NS.timetable && customs.length > 0) {
+      try {
+        var layout = NS.timetable.buildLayout(NS.timetable.entriesFromCustomCourses(customs, report));
+        lines.push(NS.timetable.summarize(layout));
+      } catch (e) {
+        lines.push('课表布局失败：' + ((e && e.message) || e));
+      }
+    }
+
     if (records.length === 0) {
       lines.push('（还没有采集到课程数据：请在选课页浏览/查询课程后再复制）');
       return lines.join('\n');
