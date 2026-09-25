@@ -114,31 +114,58 @@
 ## 开发
 
 ```bash
-npm test     # 跑测试（170 项，零依赖）
+npm test       # 跑测试（163 项，零依赖自写 harness）
 npm run build  # 拼接 src/*.js → dist/szu_bkxk.user.js
 npm run check  # 测试 + 构建
 ```
 
-**改版本号**：只改 `package.json` 的 `version`，构建时会自动写进产物头部与 `NS.VERSION`。
+**改版本号**：只改 `package.json` 的 `version`，构建时会自动写进产物头部 `@version` 与 `NS.VERSION`。
+自动更新靠 `@version` 比对，所以不要把版本号散落在多处。
 
 **源码结构**（12 个模块，拼接顺序即依赖顺序）：
 
 ```
-src/core.js       命名空间 / 日志 / 存储 / 限流队列
-src/api.js        报文构造 / 响应分类 / 未识别落档
+src/core.js       命名空间 / 日志 / 存储 / 限流队列 / 设置
+src/api.js        报文构造 / 响应分类 / 未识别落档 / 统一发送出口
 src/time.js       教学时间解析 / 冲突判定
-src/courses.js    被动取数 / 字段映射
+src/courses.js    列表取数 / 字段映射
 src/custom.js     自定义课程
 src/monitor.js    容量监控（两种模式 + 轮询 + 命中自动抢）
 src/tasks.js      抢课任务与执行引擎
-src/list.js       P0 课程列表优化
+src/list.js       课程列表优化
 src/timetable.js  课表页自绘自定义课程
 src/hijack.js     接管站点接口响应
 src/ui.js         悬浮窗
 src/main.js       入口装配
 ```
 
-接口逆向结论记录在 `docs/开发文档.md`。
+接口逆向结论、DOM 契约、发布约定与「曾踩的坑」都记录在 `docs/开发文档.md`。
+
+## 发布
+
+本仓库同时存在两套技术栈，**tag 必须加前缀区分**：
+
+| 技术栈 | 分支 | tag 格式 |
+| --- | --- | --- |
+| Python 桌面版 | `master` | `vX.Y.Z`（如 `v0.3.1`） |
+| **油猴脚本（本项目）** | `master-tampermonkey-v2` | **`tm-vX.Y.Z`** |
+
+```bash
+# 1) 改 package.json 的 version，然后构建
+npm run check
+
+# 2) 提交
+git add -A && git commit -m "chore(release): vX.Y.Z"
+
+# 3) 推送分支与 tag（tag 名带 tm- 前缀，避免与桌面版混淆）
+git push origin master-tampermonkey-v2
+git tag -a tm-vX.Y.Z -m "油猴脚本 vX.Y.Z（Tampermonkey）"
+git push origin tm-vX.Y.Z
+
+# 4) 验证 raw 链接可访问（自动更新依赖它）
+#    https://raw.githubusercontent.com/emo-bird/szu_bkxk/master-tampermonkey-v2/dist/szu_bkxk.user.js
+```
+
 
 ## 免责声明
 
