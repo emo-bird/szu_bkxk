@@ -32,6 +32,7 @@
       courseName: info.courseName || '',
       teacherName: info.teacherName || '',
       teachingPlace: info.teachingPlace || '',
+      category: info.category || '',
       mode: info.mode || 'single',
       remain: null,
       checkedAt: null,

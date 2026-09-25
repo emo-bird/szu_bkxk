@@ -310,4 +310,59 @@ test('scan 同时处理卡片与直接行', () => {
   eq(r.childNodes.filter((x) => (x.getAttribute('class') || '').includes('szu-direct-col')).length, 1, '行有新列');
 });
 
+// ---------- 类别归属（抢课报文的 teachingClassType） ----------
+
+test('类别映射：与站点 reloadCourseList 的 tcType 一致', () => {
+  const NS = loadNS();
+  eq(NS.list.BODY_CATEGORY.programBody, 'FANKC', '方案内');
+  eq(NS.list.BODY_CATEGORY.unProgramBody, 'FAWKC', '方案外');
+  eq(NS.list.BODY_CATEGORY.recommendBody, 'TJKC', '推荐');
+  eq(NS.list.BODY_CATEGORY.publicBody, 'XGXK', '校公选');
+  eq(NS.list.BODY_CATEGORY.retakeBody, 'CXKC', '重修');
+  eq(NS.list.BODY_CATEGORY.sportBody, 'TYKC', '体育');
+  eq(NS.list.BODY_CATEGORY.minorBody, 'FXKC', '辅修');
+  eq(NS.list.BODY_CATEGORY.moocBody, 'MOOC', '慕课');
+});
+
+test('categoryOfNode：从卡片向上找到所属列表类别', () => {
+  const { card: c } = card('T1');
+  const b = mk('div'); b.setAttribute('id', 'moocBody'); b.appendChild(c);
+  const NS = loadNS(mkDoc([b]));
+  eq(NS.list.categoryOfNode(c), 'MOOC');
+});
+
+test('categoryOfNode：找不到容器时返回空串', () => {
+  const orphan = mk('div', 'cv-course-card');
+  const NS = loadNS(mkDoc([]));
+  eq(NS.list.categoryOfNode(orphan), '');
+});
+
+test('sessionContext：按站点 buildAddVolunteerParam 的取值方式', () => {
+  const NS = loadNS(mkDoc([]));
+  NS.__setSession({
+    studentInfo: JSON.stringify({ code: '2026280121', electiveBatch: { code: 'BATCH1' } }),
+    currentCampus: JSON.stringify({ code: '02' }),
+  });
+  const ctx = NS.list.sessionContext();
+  eq(ctx.studentCode, '2026280121', '学号来自 studentInfo.code');
+  eq(ctx.batchCode, 'BATCH1', '批次来自 studentInfo.electiveBatch.code');
+  eq(ctx.campus, '02', '校区来自 currentCampus.code');
+});
+
+test('sessionContext：studentInfo 缺失时回退 currentBatch', () => {
+  const NS = loadNS(mkDoc([]));
+  NS.__setSession({ currentBatch: JSON.stringify({ code: 'BATCH2' }) });
+  const ctx = NS.list.sessionContext();
+  eq(ctx.batchCode, 'BATCH2', '回退到 currentBatch');
+  eq(ctx.campus, '01', '校区默认 01');
+});
+
+test('sessionContext：sessionStorage 为空时不抛错', () => {
+  const NS = loadNS(mkDoc([]));
+  const ctx = NS.list.sessionContext();
+  eq(ctx.studentCode, '');
+  eq(ctx.batchCode, '');
+  eq(ctx.campus, '01');
+});
+
 await run();

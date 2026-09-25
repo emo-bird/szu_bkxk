@@ -23,18 +23,39 @@
     VOLUNTEER: 'elective/volunteer.do',
   };
 
-  /** 类别代码 → 列表端点。MONOC 之外的都走 programCourse.do。 */
+  /**
+   * 类别代码 → 列表端点。
+   * 【来源】站点 grablessons.js 的 reloadCourseList 映射 + grablessonsBS.js 的端点定义：
+   *   FANKC 方案内 / FAWKC 方案外 / TJKC 推荐 / XGXK 校公选 /
+   *   CXKC 重修 / TYKC 体育 / FXKC 辅修 / MOOC 慕课
+   * 注：CXKC（重修）不在开发文档 §五 的列表里，是读站点源码补上的。
+   * 未经真机验证的分支已在注释标出。
+   */
   API.CATEGORY_EP = {
     FANKC: API.EP.PROGRAM_COURSE,
-    FAWKC: API.EP.PROGRAM_COURSE,
-    TJKC: API.EP.PROGRAM_COURSE,
-    XGXK: API.EP.PROGRAM_COURSE,
-    TYKC: API.EP.PROGRAM_COURSE,
-    FXKC: API.EP.PROGRAM_COURSE,
+    FAWKC: API.EP.PROGRAM_COURSE, // 未实测
+    TJKC: API.EP.RECOMMENDED_COURSE,
+    XGXK: API.EP.PUBLIC_COURSE,
+    CXKC: API.EP.PROGRAM_COURSE, // 未实测
+    TYKC: API.EP.PROGRAM_COURSE, // 未实测
+    FXKC: API.EP.PROGRAM_COURSE, // 未实测
     MOOC: API.EP.PUBLIC_COURSE,
   };
 
-  API.CATEGORIES = ['FANKC', 'FAWKC', 'TJKC', 'XGXK', 'TYKC', 'FXKC', 'MOOC'];
+  /** 全部类别代码（顺序对应选课页的页签）。 */
+  API.CATEGORIES = ['FANKC', 'FAWKC', 'TJKC', 'XGXK', 'CXKC', 'TYKC', 'FXKC', 'MOOC'];
+
+  /** 类别代码 → 中文名（界面显示用）。 */
+  API.CATEGORY_NAME = {
+    FANKC: '方案内',
+    FAWKC: '方案外',
+    TJKC: '推荐',
+    XGXK: '校公选',
+    CXKC: '重修',
+    TYKC: '体育',
+    FXKC: '辅修',
+    MOOC: '慕课',
+  };
 
   API.RESP_KIND = { OK: 'ok', BUSINESS: 'business', UNAUTHENTICATED: 'unauthenticated', UNKNOWN: 'unknown' };
   API.RESP_CODE = { SUCCESS: '1', BUSINESS_ERROR: '2', UNAUTHENTICATED: '302' };
@@ -64,19 +85,23 @@
 
   /**
    * 构造抢课请求体。
-   * 字段顺序固定：operationType / studentCode / electiveBatchCode /
+   * 【实测形状】必须包一层 `{"data":{...}}`（HAR 抓包核对）：
+   *   addParam={"data":{"operationType":"1","studentCode":…,"teachingClassType":"FANKC"}}
+   * 内层字段顺序固定：operationType / studentCode / electiveBatchCode /
    * teachingClassId / isMajor / campus / teachingClassType。
    * @returns {string} `addParam=<urlencode(JSON)>`
    */
   API.buildVolunteerBody = function (p) {
     var payload = {
-      operationType: '1',
-      studentCode: String(p.studentCode),
-      electiveBatchCode: String(p.electiveBatchCode),
-      teachingClassId: String(p.teachingClassId),
-      isMajor: p.isMajor === undefined || p.isMajor === null ? '1' : String(p.isMajor),
-      campus: p.campus === undefined || p.campus === null ? '01' : String(p.campus),
-      teachingClassType: String(p.teachingClassType),
+      data: {
+        operationType: '1',
+        studentCode: String(p.studentCode),
+        electiveBatchCode: String(p.electiveBatchCode),
+        teachingClassId: String(p.teachingClassId),
+        isMajor: p.isMajor === undefined || p.isMajor === null ? '1' : String(p.isMajor),
+        campus: p.campus === undefined || p.campus === null ? '01' : String(p.campus),
+        teachingClassType: String(p.teachingClassType),
+      },
     };
     return 'addParam=' + encodeURIComponent(JSON.stringify(payload));
   };

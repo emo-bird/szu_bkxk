@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FILES = ['api.test.mjs', 'time.test.mjs', 'conflict.test.mjs', 'list.test.mjs'];
+const FILES = ['payload.test.mjs', 'api.test.mjs', 'time.test.mjs', 'conflict.test.mjs', 'list.test.mjs'];
 
 let failed = 0;
 for (const f of FILES) {

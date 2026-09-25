@@ -23,6 +23,35 @@
   /** 直接即教学班的列表容器 id。 */
   L.DIRECT_BODIES = ['publicBody', 'moocBody'];
 
+  /**
+   * 列表容器 id → 教学班类别代码。
+   * 【来源】站点 grablessons.js 的 reloadCourseList() 映射（tcType -> 模块），
+   * 再对应到各列表容器的 id。抢课报文的 teachingClassType 必须用**该教学班所属列表**
+   * 的类别，不能用全局设置。
+   */
+  L.BODY_CATEGORY = {
+    programBody: 'FANKC',
+    unProgramBody: 'FAWKC',
+    recommendBody: 'TJKC',
+    publicBody: 'XGXK',
+    retakeBody: 'CXKC',
+    sportBody: 'TYKC',
+    minorBody: 'FXKC',
+    moocBody: 'MOOC',
+    schoolBody: 'XGXK', // 全校课程无独立类别码，暂按校公选（未实测）
+  };
+
+  /** 由节点向上找出所属列表容器，返回类别代码。 */
+  L.categoryOfNode = function (node) {
+    var n = node;
+    while (n) {
+      var id = n.getAttribute && n.getAttribute('id');
+      if (id && L.BODY_CATEGORY[id]) return L.BODY_CATEGORY[id];
+      n = n.parentNode;
+    }
+    return '';
+  };
+
   L.injectStyle = function () {
     if (root.document.getElementById(CSS_ID)) return;
     var style = root.document.createElement('style');
@@ -82,40 +111,82 @@
   }
   L.toast = toast;
 
-  L.studentCode = function () {
+  /**
+   * 会话上下文 —— 取值方式与站点 buildAddVolunteerParam() 保持一致：
+   *   studentCode / electiveBatchCode 来自 sessionStorage.studentInfo（含 electiveBatch）
+   *   campus 来自 sessionStorage.currentCampus
+   * 旧版只有 currentBatch，站点抢课实际用的是 studentInfo.electiveBatch。
+   */
+  L.sessionContext = function () {
+    var out = { studentCode: '', batchCode: '', campus: '' };
     try {
       var raw = root.sessionStorage && root.sessionStorage.getItem('studentInfo');
       if (raw) {
         var info = JSON.parse(raw);
-        if (info && info.code) return String(info.code);
+        if (info) {
+          if (info.code) out.studentCode = String(info.code);
+          if (info.electiveBatch && info.electiveBatch.code) out.batchCode = String(info.electiveBatch.code);
+        }
       }
     } catch (e) { /* 忽略 */ }
-    return '';
+    try {
+      var camp = root.sessionStorage && root.sessionStorage.getItem('currentCampus');
+      if (camp) {
+        var c = JSON.parse(camp);
+        if (c && c.code) out.campus = String(c.code);
+      }
+    } catch (e) { /* 忽略 */ }
+    // 兜底：currentBatch（capacity.do 那条路径用的是它）
+    if (!out.batchCode) {
+      try {
+        var cb = root.sessionStorage && root.sessionStorage.getItem('currentBatch');
+        if (cb) {
+          var b = JSON.parse(cb);
+          if (b && b.code) out.batchCode = String(b.code);
+        }
+      } catch (e) { /* 忽略 */ }
+    }
+    // 最后兜底：设置里手填的
+    if (!out.batchCode) out.batchCode = NS.settings().batchCode || '';
+    if (!out.campus) out.campus = '01';
+    return out;
   };
 
+  /** 当前登录学号（兼容旧调用）。 */
+  L.studentCode = function () {
+    return L.sessionContext().studentCode;
+  };
+
+  /** 当前批次码（兼容旧调用）。 */
   L.currentBatch = function () {
-    try {
-      var raw = root.sessionStorage && root.sessionStorage.getItem('currentBatch');
-      return raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      return null;
-    }
+    var ctx = L.sessionContext();
+    return ctx.batchCode ? { code: ctx.batchCode } : null;
   };
 
   L.addGrab = function (info) {
     var s = NS.settings();
-    var batch = L.currentBatch();
-    var batchCode = s.batchCode || (batch && batch.code) || '';
+    var ctx = L.sessionContext();
     var body = NS.api.buildVolunteerBody({
-      studentCode: L.studentCode(),
-      electiveBatchCode: batchCode,
+      studentCode: ctx.studentCode,
+      electiveBatchCode: ctx.batchCode,
       teachingClassId: info.teachingClassID,
-      teachingClassType: s.monitorCategory,
+      campus: ctx.campus,
+      // 用该教学班所属列表的类别，而不是全局设置
+      teachingClassType: info.category || '',
     });
     var url = NS.api.appendTimestamp(NS.api.url(NS.api.EP.VOLUNTEER));
     console.log('%c[抢课·报文预览]', 'color:#4a90d9;font-weight:bold', {
       url: url, body: body, 课程: info.courseName, 教学班ID: info.teachingClassID,
+      类别: info.category || '(未知)',
     });
+    if (!info.category) {
+      toast('未能识别该教学班的类别代码，报文可能无效，请反馈此情况。');
+      NS.warn('教学班类别未知', { 教学班ID: info.teachingClassID });
+    }
+    if (!ctx.batchCode) {
+      toast('缺少选课批次码（batchCode），报文可能无效。');
+      NS.warn('缺少 batchCode');
+    }
     if (!NS.isWriteAllowed(s)) {
       toast('写接口未开启，仅打印报文。开启后才会真正发送。');
       NS.warn('写接口未开启，「添加抢课」只构造并打印报文', { 教学班ID: info.teachingClassID });
@@ -133,6 +204,7 @@
       courseName: info.courseName,
       teacherName: info.teacherName,
       teachingPlace: info.teachingPlace,
+      category: info.category || '',
       mode: s.monitorMode,
     });
     toast('已加入监控：' + (info.courseName || info.teachingClassID));
@@ -236,6 +308,7 @@
       teachingClassID: tcId,
       courseName: NS.util.text(titleEl),
       teacherName: NS.util.text(titleEl),
+      category: L.categoryOfNode(card),
     });
     if (point.before && point.before.parentNode === point.parent) {
       point.parent.insertBefore(block, point.before);
@@ -293,6 +366,7 @@
       teachingClassID: tcId,
       courseName: NS.util.text(titleEl),
       teacherName: NS.util.text(teacherEl),
+      category: L.categoryOfNode(row),
     }));
     if (setting.parentNode) setting.parentNode.insertBefore(cell, setting.nextSibling);
     return true;
