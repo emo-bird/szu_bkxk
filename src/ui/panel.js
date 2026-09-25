@@ -157,14 +157,15 @@
   /* ------------------------------ 显示与位置 ------------------------------ */
 
   /**
-   * 往面板里插入一个自定义区块（任务管理等），默认插在"会话"与"设置"之间。
-   * 必须在 mount() 之后调用。
+   * 往面板里插入一个自定义区块（任务管理等）。
    * @param {Element} element 区块 DOM（通常是 class=szubkxk-sec）
+   * @param {boolean} [atEnd] true=追加到最下方；默认插在"会话"与"设置"之间
    * @returns {boolean} 是否插入成功
    */
-  Panel.prototype.addSection = function (element) {
+  Panel.prototype.addSection = function (element, atEnd) {
     if (!this.body || !element) return false;
-    this.body.insertBefore(element, this._settingsSection || null);
+    if (atEnd) this.body.appendChild(element);
+    else this.body.insertBefore(element, this._settingsSection || null);
     return true;
   };
 

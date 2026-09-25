@@ -79,6 +79,8 @@
     var captureHandle = options.captureHandle || null;
     var getCustomCourses = typeof options.getCustomCourses === 'function' ? options.getCustomCourses : function () { return []; };
     var getEnvText = typeof options.getEnvText === 'function' ? options.getEnvText : function () { return ''; };
+    var getSelfTestText =
+      typeof options.getSelfTestText === 'function' ? options.getSelfTestText : function () { return ''; };
 
     var sec = el(doc, 'div', 'szubkxk-sec');
     sec.appendChild(el(doc, 'div', 'szubkxk-sec-title', '课程数据（诊断）'));
@@ -176,6 +178,7 @@
         doCopy(
           NS.diagnostics.buildFullReport({
             version: NS.version,
+            selfTestText: getSelfTestText(),
             envText: getEnvText(),
             courseText: courseText(),
             sampleText: sampleText(),
