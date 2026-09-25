@@ -27,25 +27,33 @@ SZU选课脚本（UI）
 
 ## 一、当前状态
 
-| 阶段 | 内容 | 状态 |
-| --- | --- | --- |
-| P1 | `config.py` 常量/路径/开发开关、`auth_model.py` 凭证模型 | ✅ 完成 |
-| P2 | `logger_util.py` 日志（文件 + 面板双写、分类过滤） | ✅ 完成 |
-| P3 | `request_queue.py` 全局异步优先级限流队列 | ✅ 完成 |
-| P4 | `api_client.py` aiohttp 封装、报文构造、写接口禁用 | ✅ 完成 |
-| P5 | `course_model.py` + 标签页1 课程查询面板 | ✅ 完成 |
-| P6 | `task_model.py` + 标签页2 抢课任务管理器 | ✅ 完成 |
-| P7 | 标签页3 日志面板、`main.py` 入口与风险弹窗 | ✅ 完成 |
-| P8 | 课程收藏接口 | ⏸ **TODO**（接口已定位：`elective/favorite.do`，见 [`docs/接口逆向记录.md`](docs/接口逆向记录.md) 3.4） |
-| **B+** | **内嵌选课网页（WebView2 + CDP）** | ✅ **已完成并合并到主分支**（v0.2.0） |
+**版本 v0.3.1**｜`master` 已发布：[GitHub Release v0.3.1](https://github.com/emo-bird/szu_bkxk/releases/tag/v0.3.1)（附件为 Windows 成品包，解压双击即可运行）
 
-> **接口取证**：端点路径、token 传递位置、登录态失效时的服务器行为等，均已用**真实只读请求**
-> 验证并记录在 [`docs/接口逆向记录.md`](docs/接口逆向记录.md)。
-> 其中「跳转选课网页必须携带 token」已由站点 JS 原文证实。
+| 模块 / 能力 | 状态 |
+| --- | --- |
+| 课程查询（7 类别、0 基分页、容错字段映射、本地缓存） | ✅ 完成（真机验收 7 类别 **382 行**，18 条请求全走队列） |
+| 抢课任务：**单志愿抢课** | ✅ 完成（轮询 + 间隔钳位 + 持久化 + 优先级） |
+| 抢课任务：**多志愿监控** | ✅ 完成（只刷新所属类别 / 命中首个最高优先级 / 不因满课停止 / 类别自动识别） |
+| 写接口：抢课 `volunteer.do`、退课 `deleteVolunteer.do`、查容量 `capacity.do` | ✅ 按真实抓包逐字段实现，**默认关闭**（`enable_write_api=false`） |
+| 未识别响应全量落日志 | ✅ 完成（标记 `[未识别返回]`，含请求体 + 响应原文） |
+| 内嵌选课网页（WebView2 + CDP） | ✅ 完成（真机 7/7 全绿；凭证自动读取、卡片注入、被动取数、会话迁移） |
+| 运行期设置 `settings.json` | ✅ 完成（13 项，打包后可调，无需重新打包） |
+| 日志面板（文件 + 面板双写、分类过滤、即时重绘） | ✅ 完成 |
+| 打包与发布 | ✅ `build.bat` 一键打包；`tools/publish_release.py` 一条命令发 GitHub Release |
+| 课程收藏 | ⏸ 未实现（端点已定位：`elective/favorite.do`，属写操作，接入须同样受总开关约束） |
+| 退课任务化 | ⏸ 未实现（`api_client.drop_course()` 已就绪，只缺任务类型与界面入口） |
 
-> 接口字段与路径来自参考仓库 `szu/` 的逆向结论，**尚未经过浏览器抓包校验**；
-> 代码中所有未校验点均标注 `TODO(抓包校验)`，课程字段解析采用多候选字段的容错映射
-> （见 `course_model._FIELD_CANDIDATES`），拿到抓包样本后只需调整候选字段表。
+> **接口结论均已用真实抓包验证**：只读接口、DOM 选择器与三个写接口的证据都在
+> [`docs/接口逆向记录.md`](docs/接口逆向记录.md)（写接口见**第八章**）。
+> 课程字段采用多候选容错表 `course_model._FIELD_CANDIDATES`，站点加字段时扩表即可。
+
+> **写请求从未真实发出过**：所有写接口默认只构造并打印报文，需由使用者显式打开
+> `enable_write_api` 才会真正提交。详见「十四、运行期设置」。
+
+📄 文档索引：[开发文档](docs/开发文档.md)（架构 / 约定 / 扩展指南）·
+[交接文档](docs/交接文档.md)（现状 / 坑 / 下一步）·
+[需求文档](docs/需求文档.md) · [接口逆向记录](docs/接口逆向记录.md) · [TODO](docs/TODO.md)
+
 
 ## 二、环境要求
 
@@ -175,39 +183,53 @@ python -m venv .venv
 
 ```
 szu_bkxk/
-├─ config.py          全部常量、路径、开发开关（ENABLE_WRITE_API）
-├─ auth_model.py      身份凭证模型（空值校验、脱敏、sessionStorage 模拟）
+├─ config.py          全部常量、路径、开关；settings.json 读取与钳位
+├─ auth_model.py      身份凭证模型（校验、归一化、脱敏、sessionStorage 模拟）
 ├─ logger_util.py     日志工具（文件落盘 + UI 推送 + 分类过滤）
 ├─ request_queue.py   全局异步优先级限流请求队列（唯一 http 调度出口）
-├─ api_client.py      aiohttp 封装层、各接口报文构造、写接口总开关
+├─ api_client.py      aiohttp 封装、报文构造、响应分类、写接口总开关
 ├─ course_model.py    课程模型、容错字段映射、筛选、本地缓存读写
-├─ task_model.py      抢课任务模型、持久化、轮询执行器
-├─ ui_main.py         PyQt6 主窗口、四个标签页、信号槽与跨线程调度
+├─ task_model.py      任务模型（单志愿 / 多志愿监控）、持久化、轮询与监控执行器
+├─ ui_main.py         PyQt6 主窗口、四个标签页、对话框、信号槽与跨线程调度
 ├─ main.py            入口：风险弹窗、模块初始化、Qt + asyncio 双事件循环
 ├─ webview_host.py    内嵌 WebView2 窗口宿主（pythonnet + Core API，只管窗口不碰数据）
-├─ webview_bridge.py  内嵌网页数据面（CDP 泵、页面注入、课程回流、会话迁移）
+├─ webview_bridge.py  内嵌网页数据面（CDP 常驻泵、页面注入、课程回流、会话迁移）
 ├─ cdp_bridge.py      CDP 客户端（零依赖，复用 aiohttp 的 WebSocket）
-├─ tools/             只读接口探测工具与可行性 spike（probe_api.py / spike_*.py）
-├─ docs/              需求文档、开发准备、接口逆向记录、TODO
+├─ build.bat          双击打包（PyInstaller → build\szu_bkxk\）
+├─ tools/             探测与运维脚本：
+│                       probe_api.py            只读接口探测（强制走限流队列）
+│                       spike_edge_login.py     外部 Edge + CDP 备选路线
+│                       spike_webview2_embed.py 内嵌方案 7 项真机自检（金标准）
+│                       publish_release.py      一条命令创建 GitHub 发行并上传成品
+├─ docs/              需求文档、开发文档、交接文档、接口逆向记录、TODO、运行记录
 └─ szu/               参考仓库（只读参考，已在 .gitignore 排除）
 ```
 
-依赖方向：`main → ui_main → {task_model → api_client → request_queue → aiohttp,
-course_model}`，`ui_main` 不构造任何 http 报文。
+依赖方向：`main → ui_main → {task_model → api_client → request_queue → aiohttp, course_model}`；
+`ui_main` 不构造任何 http 报文；`task_model` **不**依赖任何 webview/cdp 模块（任务运行期与内嵌网页无关）。
+
 
 ## 七、限流与线程模型
 
-- 常量集中在 `config.py`：`REQUEST_INTERVAL_MS = 500`、`MAX_QUEUE_SIZE = 10`。
+- 常量集中在 `config.py`：`REQUEST_INTERVAL_MS = 500`、`MAX_QUEUE_SIZE = 10`、
+  **硬下限 `REQUEST_INTERVAL_FLOOR_MS = 200`（任何设置都不能低于它）**。
 - **单调度协程**每 500ms 取出 1 条请求执行（≈ 1 秒最多 2 条）；队列满则**直接丢弃**并告警，
-  不阻塞界面。
-- 优先级：`PRIORITY_HIGH`（用户手动 UI 操作）> `PRIORITY_NORMAL`（抢课轮询后台请求）。
-- Qt 主线程只做渲染；网络逻辑运行在独立 asyncio 线程，通过 `UiBridge` 的 Qt 信号回传结果。
+  不阻塞界面。**所有**对学校站点的请求（只读与写）都必须经过它，禁止绕过。
+- 优先级（数值越小越先）：
+  `PRIORITY_MONITOR_HIT = -10`（监控命中余量，插到最前面）> `PRIORITY_HIGH = 0`（用户手动操作）
+  > `PRIORITY_NORMAL = 10`（抢课/监控轮询）。
+- Qt 主线程只做渲染；网络与 CDP 逻辑运行在独立 asyncio 线程，通过 `UiBridge` 的 Qt 信号回传结果。
+- 页面导航类操作**不受**队列约束（是浏览器的页面加载），因此单独加了保护：
+  「重新载入」1.5s 冷却、「在真实浏览器打开」防重入（方法级守卫）。详见
+  [`docs/开发文档.md`](docs/开发文档.md) 第十节第 16 条。
+
 
 ## 八、接口清单
 
-完整报文模板、字段映射推测与校验状态见 [`docs/开发准备.md`](docs/开发准备.md) 第四节；
-真实探测所得的服务器行为证据见 [`docs/接口逆向记录.md`](docs/接口逆向记录.md)。
-**收藏接口在参考仓库中缺失，尚未逆向（已列入 TODO）。**
+完整报文模板、DOM 选择器与校验状态见 [`docs/接口逆向记录.md`](docs/接口逆向记录.md)：
+**第三～四章**（只读接口与已确认端点）、**第八章**（抢课 / 退课 / 查容量写接口实测）。
+开发视角的接口改动步骤见 [`docs/开发文档.md`](docs/开发文档.md) 8.1。
+**收藏接口已定位但未实现**（`elective/favorite.do`，属写操作，见逆向记录 3.4）。
 
 已实测确认的关键结论：
 
