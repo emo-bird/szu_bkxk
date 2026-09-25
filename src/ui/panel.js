@@ -121,9 +121,12 @@
 
     var body = el(doc, 'div', 'szubkxk-body');
     body.appendChild(this._buildSessionSection());
-    body.appendChild(this._buildSettingsSection());
+    var settingsSection = this._buildSettingsSection();
+    body.appendChild(settingsSection);
     body.appendChild(this._buildLogSection());
     rootEl.appendChild(body);
+    this.body = body;
+    this._settingsSection = settingsSection;
 
     doc.body.appendChild(rootEl);
     this.root = rootEl;
@@ -152,6 +155,18 @@
   };
 
   /* ------------------------------ 显示与位置 ------------------------------ */
+
+  /**
+   * 往面板里插入一个自定义区块（任务管理等），默认插在"会话"与"设置"之间。
+   * 必须在 mount() 之后调用。
+   * @param {Element} element 区块 DOM（通常是 class=szubkxk-sec）
+   * @returns {boolean} 是否插入成功
+   */
+  Panel.prototype.addSection = function (element) {
+    if (!this.body || !element) return false;
+    this.body.insertBefore(element, this._settingsSection || null);
+    return true;
+  };
 
   /**
    * 显示 / 隐藏面板（隐藏时露出右下角唤出按钮）。

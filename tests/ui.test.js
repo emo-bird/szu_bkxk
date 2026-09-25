@@ -10,8 +10,10 @@ const { test, section, ok, eq } = require('./harness.js');
 
 require('../src/core/ns.js');
 require('../src/core/session.js');
+require('../src/core/task.js');
 require('../src/ui/recon.js');
 require('../src/ui/panel.js');
+require('../src/ui/tasks.js');
 
 const NS = globalThis.SZUBKXK;
 const UI = NS.ui;
@@ -151,4 +153,49 @@ test('format 产出可复制回传的文本，且不泄露完整凭证', () => {
 
 test('format 对空输入有兜底', () => {
   eq(UI.recon.format(null), '(无侦察数据)');
+});
+
+section('ui/tasks.js 纯函数');
+
+test('parseTargetIds 去空行、去空白、去重且保持顺序', () => {
+  eq(UI.tasks.parseTargetIds('  A \n\n B\r\nA\n C '), ['A', 'B', 'C']);
+  eq(UI.tasks.parseTargetIds(''), []);
+  eq(UI.tasks.parseTargetIds(null), []);
+});
+
+test('timeInputToServerMs：空/非法输入 → null（立即开始）', () => {
+  eq(UI.tasks.timeInputToServerMs('', null), null);
+  eq(UI.tasks.timeInputToServerMs(null, null), null);
+  eq(UI.tasks.timeInputToServerMs('乱填', null), null);
+  eq(UI.tasks.timeInputToServerMs('25:00', null), null);
+  eq(UI.tasks.timeInputToServerMs('10:99', null), null);
+});
+
+test('timeInputToServerMs：未来时刻落在今天', () => {
+  // 服务器时间固定为 2023-11-14 12:00:00 UTC+8 的某个瞬间
+  const serverMs = new Date(2023, 10, 14, 12, 0, 0).getTime();
+  const clock = { serverNow: () => serverMs };
+  const got = UI.tasks.timeInputToServerMs('18:30', clock);
+  eq(new Date(got).getHours(), 18);
+  eq(new Date(got).getMinutes(), 30);
+  eq(new Date(got).getDate(), 14, '同一天');
+});
+
+test('timeInputToServerMs：已过的时刻顺延到明天（避免"填了却没生效"）', () => {
+  const serverMs = new Date(2023, 10, 14, 12, 0, 0).getTime();
+  const clock = { serverNow: () => serverMs };
+  const got = UI.tasks.timeInputToServerMs('09:00', clock);
+  eq(new Date(got).getDate(), 15, '应顺延到明天');
+  eq(new Date(got).getHours(), 9);
+  ok(got > serverMs, '必须晚于当前服务器时间');
+});
+
+test('timeInputToServerMs：支持 HH:MM:SS', () => {
+  const serverMs = new Date(2023, 10, 14, 12, 0, 0).getTime();
+  const clock = { serverNow: () => serverMs };
+  eq(new Date(UI.tasks.timeInputToServerMs('13:00:30', clock)).getSeconds(), 30);
+});
+
+test('课程类别表覆盖逆向记录的 7 个类别', () => {
+  eq(UI.tasks.CATEGORIES.map((c) => c.code), ['FANKC', 'FAWKC', 'TJKC', 'XGXK', 'TYKC', 'FXKC', 'MOOC']);
 });

@@ -77,6 +77,15 @@
           return panel.settings;
         },
       });
+      // 任务管理界面（插在"会话"与"设置"之间）
+      var taskView = null;
+      if (NS.ui.tasks) {
+        taskView = NS.ui.tasks.create({ doc: doc, runner: runner, logger: logger, clock: clock });
+        panel.addSection(taskView.element);
+        runner.onChange = function () {
+          if (taskView) taskView.refresh();
+        };
+      }
       runner.load();
 
       if (NS.ui.recon) {

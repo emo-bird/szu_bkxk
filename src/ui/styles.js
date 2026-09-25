@@ -53,6 +53,15 @@
     '.szubkxk-launcher{position:fixed;right:14px;bottom:14px;z-index:2147483000;border:0;border-radius:16px;',
     'padding:6px 12px;background:#1a5fb4;color:#fff;cursor:pointer;font:12px "Microsoft YaHei",Arial,sans-serif;',
     'box-shadow:0 4px 14px rgba(0,0,0,.25);}',
+    '.szubkxk-form{background:#f7f9fc;border:1px solid #e3e9f2;border-radius:4px;padding:6px;margin:4px 0;}',
+    '.szubkxk-input-wide{width:150px;}',
+    '.szubkxk-textarea{width:100%;font:12px "Microsoft YaHei",Arial,sans-serif;border:1px solid #ccc;',
+    'border-radius:4px;padding:3px;box-sizing:border-box;}',
+    '.szubkxk-tasks{max-height:180px;overflow:auto;border:1px solid #eee;border-radius:4px;}',
+    '.szubkxk-task{padding:4px 6px;border-bottom:1px solid #f0f0f0;}',
+    '.szubkxk-task:last-child{border-bottom:0;}',
+    '.szubkxk-task-line{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}',
+    '.szubkxk-task-name{font-weight:700;}',
     '.szubkxk-hidden{display:none !important;}',
   ].join('');
 
