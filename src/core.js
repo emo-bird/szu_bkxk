@@ -65,6 +65,9 @@
     pollIntervalMs: 5000,
     panelPos: null,
     panelCollapsed: false,
+    // 响应接管（两个功能各自独立开关，关闭后完全不接管）
+    hijackTimetable: true,
+    hijackListConflict: true,
   };
 
   NS.settings = function () {

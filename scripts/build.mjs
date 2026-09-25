@@ -11,7 +11,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SIZE_WARN = 150 * 1024;
 
 /** 拼接顺序即依赖顺序。 */
-const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'custom.js', 'monitor.js', 'tasks.js', 'list.js', 'timetable.js', 'ui.js', 'main.js'];
+const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'custom.js', 'monitor.js', 'tasks.js', 'list.js', 'timetable.js', 'hijack.js', 'ui.js', 'main.js'];
 
 const header = readFileSync(join(ROOT, 'src', 'userscript-header.txt'), 'utf8').trimEnd();
 

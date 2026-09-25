@@ -589,6 +589,12 @@
     }));
     frag.appendChild(rb);
 
+    frag.appendChild(el('div', 'szu-p-sec', '响应接管（只接管站点自己的请求，脚本请求不接管）'));
+    frag.appendChild(boolRow('课表注入：把自定义课程写进课表返回', 'hijackTimetable',
+      '开启后，课表页会显示你添加的自定义课程（站点原生渲染）。'));
+    frag.appendChild(boolRow('列表冲突重算：把自定义课程计入冲突', 'hijackListConflict',
+      '开启后，课程列表里与自定义课程撞时间的教学班会显示冲突。若导致无法选课，可关闭此项。'));
+
     frag.appendChild(el('div', 'szu-p-sec', '时间参数'));
     frag.appendChild(numberRow('请求间隔(ms，硬下限 200)', 'intervalMs', 200, 60000, function (v) {
       NS.saveSettings({ intervalMs: v });
@@ -611,6 +617,28 @@
     frag.appendChild(ms);
 
     return frag;
+  }
+
+  /** 一个布尔设置项（带说明）。 */
+  function boolRow(labelText, key, hint) {
+    var wrap = el('div');
+    var lab = el('label');
+    var cb = root.document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = NS.settings()[key] !== false;
+    cb.addEventListener('change', function () {
+      var patch = {};
+      patch[key] = cb.checked;
+      NS.saveSettings(patch);
+      NS.info('接管开关 ' + key + ' = ' + cb.checked);
+      U.toast((cb.checked ? '已开启：' : '已关闭：') + labelText);
+      if (hint) U.render();
+    });
+    lab.appendChild(cb);
+    lab.appendChild(el('span', undefined, labelText));
+    wrap.appendChild(lab);
+    if (hint) wrap.appendChild(el('div', 'szu-p-msg', hint));
+    return wrap;
   }
 
   function numberRow(labelText, key, min, max, onChange) {
