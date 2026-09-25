@@ -122,18 +122,26 @@ test('样本原文超长时再截断', () => {
 
 section('core/diagnostics.js 回传包');
 
-test('buildFullReport 含三个分区', () => {
+test('buildFullReport 含四个分区', () => {
   const text = D.buildFullReport({
     version: '9.9.9',
+    selfTestText: 'SELFTEST-MARK',
     envText: 'ENV-MARK',
     courseText: 'COURSE-MARK',
     sampleText: 'SAMPLE-MARK',
   });
   ok(text.indexOf('9.9.9') !== -1);
+  ok(text.indexOf('SELFTEST-MARK') !== -1, '缺自检分区');
   ok(text.indexOf('ENV-MARK') !== -1);
   ok(text.indexOf('COURSE-MARK') !== -1);
   ok(text.indexOf('SAMPLE-MARK') !== -1);
+  ok(text.indexOf('零、页内自检') !== -1);
   ok(text.indexOf('一、环境侦察') !== -1);
+});
+
+test('buildFullReport 未传自检文本时给占位，不炸', () => {
+  const text = D.buildFullReport({ version: '1.0.0' });
+  ok(text.indexOf('(未运行)') !== -1, text);
 });
 
 section('ui/courseData.js 复制降级');

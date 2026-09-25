@@ -53,6 +53,20 @@ function main() {
   const { header, version } = readHeader();
   const modules = listModules();
 
+  // 版本占位符必须**恰好出现 1 次**（就是 NS.version 的赋值）。
+  // 替换是全量的：若有人在别处也写了这个字面量（注释/断言里很容易发生），
+  // 它会被悄悄换成版本号，行为随之改变 —— 所以在这里硬性拦住。
+  const tokenCount = modules.reduce((n, p) => {
+    const src = readFileSync(p, 'utf8');
+    return n + src.split(VERSION_TOKEN).length - 1;
+  }, 0);
+  if (tokenCount !== 1) {
+    throw new Error(
+      `[FAIL] 版本占位符 ${VERSION_TOKEN} 应恰好出现 1 次，实际 ${tokenCount} 次；` +
+        `请检查是否有模块把该字面量写进了注释或断言`
+    );
+  }
+
   const body = modules
     .map((p) => {
       const rel = relative(SRC, p).split('\\').join('/');
