@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         深大选课辅助（Tampermonkey）
 // @namespace    https://github.com/emo-bird/szu_bkxk
-// @version      0.1.0
+// @version      0.2.0
 // @description  深大选课站点：课程列表增强、抢课任务悬浮窗、自定义课程与课表显示（仅供技术学习研究）
 // @author       emo-bird
 // @match        http://bkxk.szu.edu.cn/xsxkapp/sys/xsxkapp/*

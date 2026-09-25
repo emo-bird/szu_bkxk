@@ -109,8 +109,9 @@
       }
 
       // 被动取数（M3 数据层）：只旁听页面自己发出的请求，**不额外发一条请求**
+      var captureHandle = null;
       if (NS.capture && NS.model) {
-        NS.capture.install({
+        captureHandle = NS.capture.install({
           win: root,
           onResponse: function (payload) {
             var records = NS.capture.recordsFromResponse(payload);
@@ -120,10 +121,31 @@
               NS.log.CATEGORY.QUERY,
               '旁听到课程数据：本次 ' + records.length + ' 条，累计 ' + total + ' 条'
             );
-            if (customView) customView.refresh(); // 站点课程变了，冲突要重算
+            // 站点课程变了：冲突要重算，诊断面板要刷新
+            if (customView) customView.refresh();
+            if (courseDataView) courseDataView.refresh();
           },
         });
         logger.info(NS.log.CATEGORY.SYSTEM, '已开始被动旁听课程数据（不发额外请求）');
+      }
+
+      // 课程数据（诊断）面板：让采集结果可见、可复制回传
+      var courseDataView = null;
+      if (NS.ui.courseData) {
+        courseDataView = NS.ui.courseData.create({
+          doc: doc,
+          win: root,
+          courseCache: courseCache,
+          logger: logger,
+          captureHandle: captureHandle,
+          getCustomCourses: function () {
+            return customView ? customView.list() : [];
+          },
+          getEnvText: function () {
+            return NS.ui.recon ? NS.ui.recon.format(NS.ui.recon.collect(root)) : '';
+          },
+        });
+        panel.addSection(courseDataView.element);
       }
 
       if (NS.ui.recon) {
@@ -145,6 +167,7 @@
           return courseCache.list();
         },
         courseCache: courseCache,
+        capture: captureHandle,
       };
     } catch (e) {
       try {
