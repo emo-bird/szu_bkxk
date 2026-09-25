@@ -28,9 +28,11 @@ export function ok(value, label) {
 /**
  * 把 src 各模块按顺序拼接后在一个隔离上下文中求值，返回挂好的 SZUBKXK 命名空间。
  * 这样测试跑的就是真正会打包进产物、且在浏览器里运行的那份代码。
+ *
+ * 传入 docMock 时，把该对象作为 document 注入（供 list/intercept 的 DOM 用例使用）。
  */
-export function loadNS() {
-  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'list.js'];
+export function loadNS(docMock) {
+  const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'monitor.js', 'list.js', 'intercept.js'];
   const src = MODULES.map((m) => readFileSync(join(ROOT, 'src', m), 'utf8')).join('\n');
 
   const sandbox = {
@@ -52,15 +54,25 @@ export function loadNS() {
     encodeURIComponent,
     decodeURIComponent,
     localStorage: null,
-    document: null,
+    document: docMock || null,
+    sessionStorage: docMock ? docMock._sessionStorage || null : null,
     location: { pathname: '/' },
     fetch: null,
+    XMLHttpRequest: function () { this.addEventListener = function () {}; },
+    MutationObserver: function () { this.observe = function () {}; },
+    BH_UTILS: { doAjax: function () { return { done() { return this; } }; } },
   };
   sandbox.globalThis = sandbox;
 
-  // 用 Function 构造器在沙箱对象的作用域里执行；模块以 (function(root){...})(globalThis) 形式挂载
-  const fn = new Function('globalThis', 'console', 'setTimeout', 'clearTimeout', 'localStorage', 'document', 'location', 'fetch', src);
-  fn(sandbox, sandbox.console, sandbox.setTimeout, sandbox.clearTimeout, sandbox.localStorage, sandbox.document, sandbox.location, sandbox.fetch);
+  const fn = new Function(
+    'globalThis', 'console', 'setTimeout', 'clearTimeout', 'localStorage', 'sessionStorage',
+    'document', 'location', 'fetch', 'XMLHttpRequest', 'MutationObserver', 'BH_UTILS', src
+  );
+  fn(
+    sandbox, sandbox.console, sandbox.setTimeout, sandbox.clearTimeout, sandbox.localStorage,
+    sandbox.sessionStorage, sandbox.document, sandbox.location, sandbox.fetch,
+    sandbox.XMLHttpRequest, sandbox.MutationObserver, sandbox.BH_UTILS
+  );
   return sandbox.SZUBKXK;
 }
 
