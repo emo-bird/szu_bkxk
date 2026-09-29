@@ -70,14 +70,47 @@ test('请求间隔硬下限仍是 200（红线②不得放松）', () => {
   eq(NS.queue.intervalMs >= 200, true, '队列间隔不得低于 200ms');
 });
 
-test('设置页两个间隔输入框的下限都已同步为 200', () => {
-  const m = UI_SRC.match(/numberRow\('抢课重试间隔[^']*',\s*'retryIntervalMs',\s*(\d+),\s*(\d+)/);
-  ok(m, '应能匹配到抢课重试间隔的 numberRow');
-  eq(m[1], '200', '抢课重试间隔 UI 下限应为 200');
-  eq(m[2], '60000', '抢课重试间隔 UI 上限应为 60000');
-  const mi = UI_SRC.match(/numberRow\('请求间隔[^']*',\s*'intervalMs',\s*(\d+),\s*(\d+)/);
-  ok(mi, '应能匹配到请求间隔的 numberRow');
-  eq(mi[1], '200', '请求间隔 UI 下限应为 200');
+test('NS.LIMITS 是时间参数的唯一下限来源，全部为 200', () => {
+  ['intervalMs', 'retryIntervalMs', 'pollIntervalMs'].forEach((k) => {
+    ok(NS.LIMITS[k], 'NS.LIMITS.' + k + ' 应存在');
+    eq(NS.LIMITS[k].min, 200, k + ' 下限应为 200');
+    eq(NS.LIMITS[k].max, 60000, k + ' 上限应为 60000');
+  });
+  eq(NS.LIMITS.retryIntervalMs.def, 1500, '抢课重试间隔默认值应为 1500');
+  eq(NS.LIMITS.pollIntervalMs.def, 1500, '监控轮询间隔默认值应为 1500');
+  eq(NS.LIMITS.intervalMs.def, 500, '请求间隔默认值应为 500');
+});
+
+test('NS.LIMITS.clamp：非法值退回默认，越界夹到边界', () => {
+  eq(NS.LIMITS.clamp('retryIntervalMs', 200), 200);
+  eq(NS.LIMITS.clamp('retryIntervalMs', 199), 200, '低于 200 夹到 200');
+  eq(NS.LIMITS.clamp('retryIntervalMs', 999999), 60000);
+  eq(NS.LIMITS.clamp('retryIntervalMs', 'abc'), 1500, '非数字退回默认值');
+  eq(NS.LIMITS.clamp('retryIntervalMs', undefined), 1500);
+  eq(NS.LIMITS.clamp('pollIntervalMs', 500), 500, '范围内原样返回，不夹到下限');
+  eq(NS.LIMITS.clamp('pollIntervalMs', 199), 200, '监控间隔下限也已是 200');
+});
+
+test('DEFAULT_SETTINGS 的默认值取自 NS.LIMITS，未再写裸数字', () => {
+  const d = NS.DEFAULT_SETTINGS;
+  eq(d.intervalMs, NS.LIMITS.intervalMs.def);
+  eq(d.retryIntervalMs, NS.LIMITS.retryIntervalMs.def);
+  eq(d.pollIntervalMs, NS.LIMITS.pollIntervalMs.def);
+});
+
+test('设置页三个时间输入框一律走 limitRow（上下限取自 NS.LIMITS）', () => {
+  const calls = UI_SRC.match(/limitRow\(/g) || [];
+  eq(calls.length, 4, 'limitRow 应出现 4 次：定义 1 + 调用 3');
+  ['intervalMs', 'retryIntervalMs', 'pollIntervalMs'].forEach((k) => {
+    ok(new RegExp("limitRow\\([^,]+, '" + k + "'").test(UI_SRC), `应有 ${k} 的 limitRow 调用`);
+  });
+  ok(UI_SRC.indexOf('numberRow') < 0, 'numberRow 应已被 limitRow 取代，不得残留');
+});
+
+test('UI 不得再硬编码时间下限，一律引用 NS.LIMITS', () => {
+  const nums = UI_SRC.match(/limitRow\('[^']+',\s*'\w+',\s*\d+/g) || [];
+  eq(nums.length, 0, 'limitRow 调用不得再传裸数字边界：' + nums.join(' | '));
+  ok(UI_SRC.indexOf('NS.LIMITS.clamp') >= 0, 'UI 钳位应走 NS.LIMITS.clamp');
 });
 
 await run();

@@ -15,7 +15,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SIZE_WARN = 150 * 1024;
 
 /** 拼接顺序即依赖顺序。 */
-const MODULES = ['core.js', 'api.js', 'time.js', 'courses.js', 'custom.js', 'monitor.js', 'tasks.js', 'list.js', 'timetable.js', 'hijack.js', 'ui.js', 'main.js'];
+const MODULES = ['limits.js', 'core.js', 'api.js', 'time.js', 'courses.js', 'custom.js', 'monitor.js', 'tasks.js', 'list.js', 'timetable.js', 'hijack.js', 'ui.js', 'main.js'];
 
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
 const VERSION = pkg.version;

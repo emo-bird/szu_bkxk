@@ -58,14 +58,14 @@
   /** 默认设置。`writeApiEnabled` 默认 false 是红线①，**不得修改**。 */
   NS.DEFAULT_SETTINGS = {
     writeApiEnabled: false,
-    intervalMs: 500,
+    intervalMs: NS.LIMITS.intervalMs.def,
     batchCode: '',
     monitorMode: 'category',
     monitorCategory: 'FANKC',
     // P1
     retryMode: 'smart',
-    retryIntervalMs: 1500,
-    pollIntervalMs: 5000,
+    retryIntervalMs: NS.LIMITS.retryIntervalMs.def,
+    pollIntervalMs: NS.LIMITS.pollIntervalMs.def,
     panelPos: null,
     panelCollapsed: false,
     // 响应接管（两个功能各自独立开关，关闭后完全不接管）
@@ -149,10 +149,11 @@
     },
   };
 
-  /** 请求间隔硬下限（毫秒）。红线②：任何设置都不得更低。 */
-  var FLOOR = 200;
-  var CEIL = 60000;
-  var DEFAULT_INTERVAL = 500;
+  /** 请求间隔边界取自 NS.LIMITS。红线②：下限 200 不得更低。 */
+  var LIM = NS.LIMITS.intervalMs;
+  var FLOOR = LIM.min;
+  var CEIL = LIM.max;
+  var DEFAULT_INTERVAL = LIM.def;
 
   /**
    * 串行限流队列。

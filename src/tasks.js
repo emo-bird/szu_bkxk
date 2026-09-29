@@ -105,7 +105,7 @@
 
   T.retryIntervalMs = function () {
     var s = NS.settings();
-    return NS.util.clamp(s.retryIntervalMs, 200, 60000, 1500);
+    return NS.LIMITS.clamp('retryIntervalMs', s.retryIntervalMs);
   };
 
   T.active = function () {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         深大选课助手 v2
 // @namespace    https://github.com/emo-bird/szu_bkxk
-// @version      2.2.0
+// @version      2.3.0
 // @description  深圳大学选课站点辅助工具：课程列表优化 / 抢课任务 / 容量监控 / 自定义课程与冲突计算。仅供技术学习研究，使用风险自负。
 // @author       emo-bird
 // @match        http://bkxk.szu.edu.cn/*
@@ -12,6 +12,38 @@
 // @downloadURL  https://raw.githubusercontent.com/emo-bird/szu_bkxk/master-tampermonkey-v2/dist/szu_bkxk.user.js
 // @supportURL   https://github.com/emo-bird/szu_bkxk/issues
 // ==/UserScript==
+
+/* ==================== src/limits.js ==================== */
+/**
+ * 时间参数的唯一下限/上限来源。
+ *
+ * 为什么单独成文件：改一个下限要同步改的地方散在 api/tasks/monitor/ui 四处，
+ * 漏改任一处就会出现「输入被 UI 拦下」或「保存后被 clamp 静默夹回」的错配。
+ * 这里集中定义，其它模块一律引用，禁止再写裸数字。
+ *
+ * 红线②：intervalMs 下限 200 是硬约束，**不得调低**。
+ */
+(function (root) {
+  'use strict';
+  var NS = root.SZUBKXK || (root.SZUBKXK = {});
+
+  NS.LIMITS = {
+    /** 请求间隔：全局串行队列，相邻两条请求开始时刻的最小间隔（红线②）。 */
+    intervalMs: { min: 200, max: 60000, def: 500 },
+    /** 抢课重试：一轮跑完等多久再开下一轮。 */
+    retryIntervalMs: { min: 200, max: 60000, def: 1500 },
+    /** 监控轮询间隔。 */
+    pollIntervalMs: { min: 200, max: 60000, def: 1500 },
+  };
+
+  /** 统一钳位入口：非数字退回默认值，再夹到 [min, max]。 */
+  NS.LIMITS.clamp = function (key, value) {
+    var L = NS.LIMITS[key];
+    var n = Number(value);
+    if (!isFinite(n)) n = L.def;
+    return Math.min(L.max, Math.max(L.min, n));
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);
 
 /* ==================== src/core.js ==================== */
 /**
@@ -26,7 +58,7 @@
   var NS = (root.SZUBKXK = root.SZUBKXK || {});
 
   /** 版本号：由构建脚本从 package.json 注入，勿手改。 */
-  NS.VERSION = '2.2.0';
+  NS.VERSION = '2.3.0';
 
   NS.LOG = {
     MAX: 300,
@@ -74,14 +106,14 @@
   /** 默认设置。`writeApiEnabled` 默认 false 是红线①，**不得修改**。 */
   NS.DEFAULT_SETTINGS = {
     writeApiEnabled: false,
-    intervalMs: 500,
+    intervalMs: NS.LIMITS.intervalMs.def,
     batchCode: '',
     monitorMode: 'category',
     monitorCategory: 'FANKC',
     // P1
     retryMode: 'smart',
-    retryIntervalMs: 1500,
-    pollIntervalMs: 5000,
+    retryIntervalMs: NS.LIMITS.retryIntervalMs.def,
+    pollIntervalMs: NS.LIMITS.pollIntervalMs.def,
     panelPos: null,
     panelCollapsed: false,
     // 响应接管（两个功能各自独立开关，关闭后完全不接管）
@@ -165,10 +197,11 @@
     },
   };
 
-  /** 请求间隔硬下限（毫秒）。红线②：任何设置都不得更低。 */
-  var FLOOR = 200;
-  var CEIL = 60000;
-  var DEFAULT_INTERVAL = 500;
+  /** 请求间隔边界取自 NS.LIMITS。红线②：下限 200 不得更低。 */
+  var LIM = NS.LIMITS.intervalMs;
+  var FLOOR = LIM.min;
+  var CEIL = LIM.max;
+  var DEFAULT_INTERVAL = LIM.def;
 
   /**
    * 串行限流队列。
@@ -1378,7 +1411,7 @@
     if (!M.polling) return;
     M.pollOnce().then(function () {
       if (!M.polling) return;
-      var iv = NS.util.clamp(NS.settings().pollIntervalMs, 1000, 60000, 5000);
+      var iv = NS.LIMITS.clamp('pollIntervalMs', NS.settings().pollIntervalMs);
       M._timer = setTimeout(M._loop, iv);
     });
   };
@@ -1502,7 +1535,7 @@
 
   T.retryIntervalMs = function () {
     var s = NS.settings();
-    return NS.util.clamp(s.retryIntervalMs, 200, 60000, 1500);
+    return NS.LIMITS.clamp('retryIntervalMs', s.retryIntervalMs);
   };
 
   T.active = function () {
@@ -3136,7 +3169,7 @@
     modeRow.appendChild(ms);
     frag.appendChild(modeRow);
 
-    var iv = NS.util.clamp(s.pollIntervalMs, 1000, 60000, 5000);
+    var iv = NS.LIMITS.clamp('pollIntervalMs', s.pollIntervalMs);
     var state = NS.monitor.polling
       ? ('运行中（' + (isCat ? '类别' : '单独') + '模式，每 ' + iv + 'ms 一轮，已完成 ' + NS.monitor.pollCount + ' 轮，命中 ' + NS.monitor.hitCount + ' 次）')
       : '未运行';
@@ -3353,14 +3386,14 @@
       '开启后，课程列表里与自定义课程撞时间的教学班会显示冲突。若导致无法选课，可关闭此项。'));
 
     frag.appendChild(el('div', 'szu-p-sec', '时间参数'));
-    frag.appendChild(numberRow('请求间隔(ms，硬下限 200)', 'intervalMs', 200, 60000, function (v) {
+    frag.appendChild(limitRow('请求间隔', 'intervalMs', function (v) {
       NS.saveSettings({ intervalMs: v });
-      NS.queue.intervalMs = Math.min(60000, Math.max(200, v));
+      NS.queue.intervalMs = NS.LIMITS.clamp('intervalMs', v);
     }));
-    frag.appendChild(numberRow('抢课重试间隔(ms，硬下限 200)', 'retryIntervalMs', 200, 60000, function (v) {
+    frag.appendChild(limitRow('抢课重试间隔', 'retryIntervalMs', function (v) {
       NS.saveSettings({ retryIntervalMs: v });
     }));
-    frag.appendChild(numberRow('监控轮询间隔(ms)', 'pollIntervalMs', 1000, 60000, function (v) {
+    frag.appendChild(limitRow('监控轮询间隔', 'pollIntervalMs', function (v) {
       NS.saveSettings({ pollIntervalMs: v });
     }));
 
@@ -3398,16 +3431,20 @@
     return wrap;
   }
 
-  function numberRow(labelText, key, min, max, onChange) {
+  /** 时间参数行：上下限一律取自 NS.LIMITS，标签自动带上限说明。 */
+  function limitRow(labelText, key, onChange) {
+    var L = NS.LIMITS[key];
     var s = NS.settings();
     var row = el('label');
-    row.appendChild(el('span', undefined, labelText + '：'));
+    row.appendChild(el('span', undefined, labelText + '(ms，' + L.min + '~' + L.max + '，默认 ' + L.def + ')：'));
     var inp = root.document.createElement('input');
     inp.type = 'number';
+    inp.min = String(L.min);
+    inp.max = String(L.max);
     inp.value = String(s[key]);
     inp.style.width = '80px';
     inp.addEventListener('change', function () {
-      var v = NS.util.clamp(inp.value, min, max, Number(s[key]) || min);
+      var v = NS.LIMITS.clamp(key, inp.value);
       inp.value = String(v);
       onChange(v);
       U.toast('已保存');

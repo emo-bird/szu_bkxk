@@ -371,7 +371,7 @@
     if (!M.polling) return;
     M.pollOnce().then(function () {
       if (!M.polling) return;
-      var iv = NS.util.clamp(NS.settings().pollIntervalMs, 1000, 60000, 5000);
+      var iv = NS.LIMITS.clamp('pollIntervalMs', NS.settings().pollIntervalMs);
       M._timer = setTimeout(M._loop, iv);
     });
   };

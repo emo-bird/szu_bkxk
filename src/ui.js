@@ -379,7 +379,7 @@
     modeRow.appendChild(ms);
     frag.appendChild(modeRow);
 
-    var iv = NS.util.clamp(s.pollIntervalMs, 1000, 60000, 5000);
+    var iv = NS.LIMITS.clamp('pollIntervalMs', s.pollIntervalMs);
     var state = NS.monitor.polling
       ? ('运行中（' + (isCat ? '类别' : '单独') + '模式，每 ' + iv + 'ms 一轮，已完成 ' + NS.monitor.pollCount + ' 轮，命中 ' + NS.monitor.hitCount + ' 次）')
       : '未运行';
@@ -596,14 +596,14 @@
       '开启后，课程列表里与自定义课程撞时间的教学班会显示冲突。若导致无法选课，可关闭此项。'));
 
     frag.appendChild(el('div', 'szu-p-sec', '时间参数'));
-    frag.appendChild(numberRow('请求间隔(ms，硬下限 200)', 'intervalMs', 200, 60000, function (v) {
+    frag.appendChild(limitRow('请求间隔', 'intervalMs', function (v) {
       NS.saveSettings({ intervalMs: v });
-      NS.queue.intervalMs = Math.min(60000, Math.max(200, v));
+      NS.queue.intervalMs = NS.LIMITS.clamp('intervalMs', v);
     }));
-    frag.appendChild(numberRow('抢课重试间隔(ms，硬下限 200)', 'retryIntervalMs', 200, 60000, function (v) {
+    frag.appendChild(limitRow('抢课重试间隔', 'retryIntervalMs', function (v) {
       NS.saveSettings({ retryIntervalMs: v });
     }));
-    frag.appendChild(numberRow('监控轮询间隔(ms)', 'pollIntervalMs', 1000, 60000, function (v) {
+    frag.appendChild(limitRow('监控轮询间隔', 'pollIntervalMs', function (v) {
       NS.saveSettings({ pollIntervalMs: v });
     }));
 
@@ -641,16 +641,20 @@
     return wrap;
   }
 
-  function numberRow(labelText, key, min, max, onChange) {
+  /** 时间参数行：上下限一律取自 NS.LIMITS，标签自动带上限说明。 */
+  function limitRow(labelText, key, onChange) {
+    var L = NS.LIMITS[key];
     var s = NS.settings();
     var row = el('label');
-    row.appendChild(el('span', undefined, labelText + '：'));
+    row.appendChild(el('span', undefined, labelText + '(ms，' + L.min + '~' + L.max + '，默认 ' + L.def + ')：'));
     var inp = root.document.createElement('input');
     inp.type = 'number';
+    inp.min = String(L.min);
+    inp.max = String(L.max);
     inp.value = String(s[key]);
     inp.style.width = '80px';
     inp.addEventListener('change', function () {
-      var v = NS.util.clamp(inp.value, min, max, Number(s[key]) || min);
+      var v = NS.LIMITS.clamp(key, inp.value);
       inp.value = String(v);
       onChange(v);
       U.toast('已保存');
