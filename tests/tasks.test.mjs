@@ -188,4 +188,93 @@ test('buildBody：报文用任务自己的类别', () => {
   ok(json.data, '必须包一层 data');
 });
 
+// ---------- 上次异常残留的清洗（用户要求：勾选的任务都必须在下一轮真正尝试） ----------
+
+function mkTask(over) {
+  return Object.assign({
+    id: 'x1', seq: 1, teachingClassID: '20262', courseName: 'C程序设计',
+    category: 'FANKC', priority: 0, enabled: true, status: T.STATUS.PENDING,
+    retryMode: T.MODE.SMART, attempts: 3, lastMsg: '上次失败', lastKind: 'terminal',
+    addedAt: Date.now(),
+  }, over || {});
+}
+
+test('clearStale：重置已勾选的 failed 任务，attempts/lastMsg 一并清空', () => {
+  T.items = [mkTask({ id: 'a', status: T.STATUS.FAILED })];
+  eq(T.clearStale(), 1, '应清洗 1 个');
+  eq(T.items[0].status, T.STATUS.PENDING);
+  eq(T.items[0].attempts, 0);
+  eq(T.items[0].lastMsg, '');
+  eq(T.items[0].lastKind, '');
+});
+
+test('clearStale：success 保持不动（不对已抢上的课重复提交）', () => {
+  T.items = [mkTask({ id: 'a', status: T.STATUS.SUCCESS, attempts: 1 })];
+  eq(T.clearStale(), 0);
+  eq(T.items[0].status, T.STATUS.SUCCESS);
+  eq(T.items[0].attempts, 1, 'success 的 attempts 不该被清零');
+});
+
+test('clearStale：未勾选（enabled=false）的 failed 不清洗', () => {
+  T.items = [mkTask({ id: 'a', enabled: false, status: T.STATUS.FAILED })];
+  eq(T.clearStale(), 0);
+  eq(T.items[0].status, T.STATUS.FAILED);
+});
+
+test('clearStale：混合状态只动 failed 的部分', () => {
+  T.items = [
+    mkTask({ id: 'a', status: T.STATUS.FAILED }),
+    mkTask({ id: 'b', status: T.STATUS.SUCCESS }),
+    mkTask({ id: 'c', status: T.STATUS.PENDING }),
+    mkTask({ id: 'd', enabled: false, status: T.STATUS.FAILED }),
+  ];
+  eq(T.clearStale(), 1, '只有 a 该被清洗');
+  eq(T.items.map((t) => t.status),
+    [T.STATUS.PENDING, T.STATUS.SUCCESS, T.STATUS.PENDING, T.STATUS.FAILED]);
+});
+
+test('回归：上次异常导致 failed 的任务，再点开始必须重新变活跃', async () => {
+  // 用户报的问题：任务在已勾选状态下跑失败，再点「开始抢课」被 active() 过滤掉。
+  T.stop();
+  NS.saveSettings({ writeApiEnabled: true });
+  const sent = [];
+  NS.__setFetch((url, opts) => {
+    sent.push({ url, opts });
+    return Promise.resolve(NS.__resp(JSON.stringify({ code: 2, msg: '教学班已满' })));
+  });
+  NS.__setSession({ token: 'T', currentCampus: JSON.stringify({ code: '01' }),
+    studentInfo: JSON.stringify({ code: '2026280121', electiveBatch: { code: 'B' } }) });
+
+  T.items = [mkTask({ id: 'a', status: T.STATUS.FAILED })];
+  eq(T.active().length, 0, '清洗前：failed 任务不活跃，永远抢不了');
+
+  const r = await T.start();
+  eq(r.ok, true, 'start 应成功');
+  // 等一轮真正跑完（start 里的 _loop 是异步的）
+  for (let i = 0; i < 50 && sent.length === 0; i++) await new Promise((res) => setTimeout(res, 10));
+
+  ok(sent.length >= 1, '该 failed 任务必须被真正尝试过（发出请求），实际请求数 ' + sent.length);
+  eq(T.items[0].attempts >= 1, true, 'attempts 应被计数');
+  T.stop();
+  eq(T.running, false, '收尾：不得残留运行态');
+});
+
+test('start：清洗发生在 no-task 判断之前（全是 failed 时不应报 no-task）', async () => {
+  T.stop();
+  NS.saveSettings({ writeApiEnabled: true });
+  T.items = [mkTask({ id: 'a', status: T.STATUS.FAILED })];
+  const r = await T.start();
+  ok(r.ok, '全是 failed 的任务也应能开始，实际: ' + JSON.stringify(r));
+  T.stop();
+});
+
+test('start：全部 success 时才算 no-task（无可尝试任务）', async () => {
+  T.stop();
+  NS.saveSettings({ writeApiEnabled: true });
+  T.items = [mkTask({ id: 'a', status: T.STATUS.SUCCESS })];
+  const r = await T.start();
+  eq(r.ok, false);
+  eq(r.reason, 'no-task');
+});
+
 await run();

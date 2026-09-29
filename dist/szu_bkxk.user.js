@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         深大选课助手 v2
 // @namespace    https://github.com/emo-bird/szu_bkxk
-// @version      2.3.0
+// @version      2.3.1
 // @description  深圳大学选课站点辅助工具：课程列表优化 / 抢课任务 / 容量监控 / 自定义课程与冲突计算。仅供技术学习研究，使用风险自负。
 // @author       emo-bird
 // @match        http://bkxk.szu.edu.cn/*
@@ -58,7 +58,7 @@
   var NS = (root.SZUBKXK = root.SZUBKXK || {});
 
   /** 版本号：由构建脚本从 package.json 注入，勿手改。 */
-  NS.VERSION = '2.3.0';
+  NS.VERSION = '2.3.1';
 
   NS.LOG = {
     MAX: 300,
@@ -1766,14 +1766,41 @@
    * 开始执行。写接口未开启时直接拒绝（红线①）。
    * @returns {Promise<{ok:boolean, reason:string}>}
    */
+  /**
+   * 清洗已勾选任务的**上次**异常残留，让它们回到待抢。
+   *
+   * 为什么必须做：active() 只挑 pending/running。任务在「已勾选」状态下跑失败时
+   * 状态被置为 failed（前置校验失败 / 终结性业务拒绝 / 网络异常不重试），
+   * 再点「开始抢课」这些任务会被 active() 直接过滤掉，永远不再尝试。
+   * 注意 T.toggle 只在重新勾选那一刻翻回 pending，救不了这种情况。
+   *
+   * 只重置 failed；success 保持不动，避免对已抢上的课重复提交。
+   * @returns {number} 被清洗的任务数
+   */
+  T.clearStale = function () {
+    var n = 0;
+    for (var i = 0; i < T.items.length; i++) {
+      var t = T.items[i];
+      if (!t.enabled || t.status !== T.STATUS.FAILED) continue;
+      t.status = T.STATUS.PENDING;
+      t.attempts = 0;
+      t.lastMsg = '';
+      t.lastKind = '';
+      n++;
+    }
+    return n;
+  };
+
   T.start = function () {
     if (!NS.isWriteAllowed(NS.settings())) {
       return Promise.resolve({ ok: false, reason: 'write-disabled' });
     }
     if (T.running) return Promise.resolve({ ok: false, reason: 'already-running' });
+    var cleared = T.clearStale();
     if (!T.active().length) return Promise.resolve({ ok: false, reason: 'no-task' });
     T.running = true;
     T.stopped = false;
+    if (cleared) NS.info('已重置 ' + cleared + ' 个上次异常的任务');
     NS.info('开始抢课，任务数 ' + T.active().length);
     T._loop();
     return Promise.resolve({ ok: true, reason: '' });
