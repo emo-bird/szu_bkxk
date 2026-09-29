@@ -84,6 +84,13 @@
       'border:1px solid #e2ecf7;border-radius:3px;padding:4px;}',
       '#szu-panel .szu-p-empty{color:#999;text-align:center;padding:14px 0;}',
       '#szu-panel .szu-p-sec{font-weight:bold;color:#047ADC;margin:8px 0 4px;}',
+      '#szu-auth-mask{position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483001;',
+      'background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;}',
+      '#szu-auth-mask .szu-auth-box{width:340px;background:#fff;border-radius:6px;padding:16px;',
+      'font:13px/1.6 -apple-system,"Microsoft YaHei",sans-serif;color:#333;',
+      'box-shadow:0 6px 24px rgba(0,0,0,.3);}',
+      '#szu-auth-mask h3{margin:0 0 8px;font-size:14px;color:#c0392b;}',
+      '#szu-auth-mask .szu-auth-buts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}',
     ].join('');
     (root.document.head || root.document.documentElement).appendChild(s);
   };
@@ -322,9 +329,10 @@
       }));
       box.appendChild(l2);
 
-      if (t.lastMsg) {
+      // 请求中还没有返回文案时也要占一行，否则卡片是黄底却整片空白，看不出在做什么
+      if (t.lastMsg || t.status === NS.tasks.STATUS.RUNNING) {
         var mcls = 'szu-p-msg' + (t.status === NS.tasks.STATUS.SUCCESS ? ' ok' : (t.status === NS.tasks.STATUS.FAILED ? ' err' : ''));
-        box.appendChild(el('div', mcls, t.lastMsg));
+        box.appendChild(el('div', mcls, t.lastMsg || '请求中…'));
       }
       frag.appendChild(box);
     });
@@ -677,6 +685,45 @@
     frag.appendChild(pre);
     return frag;
   }
+
+  /**
+   * 登录态失效弹窗。
+   *
+   * 实测（HAR）：站点把会话踢下线时返回 code=302「请求数据与登录者身份不一致，非法请求。」，
+   * 被限流时返回 code=0「请求过快，请登录后再试」。此时悬浮窗里的一行红字很容易被忽略，
+   * 故改成必须手动处理的弹窗，并直接给「刷新网页重新登录」按钮。
+   * 每次页面加载只弹一次（authShown 不复位），否则多任务/轮询会连续刷屏。
+   */
+  var authMask = null;
+  var authShown = false;
+
+  U.authExpired = function () {
+    if (authShown) return;
+    authShown = true;
+    var doc = root.document;
+    var mask = el('div');
+    mask.id = 'szu-auth-mask';
+    var box = el('div', 'szu-auth-box');
+    box.appendChild(el('h3', undefined, '登录态已失效'));
+    box.appendChild(el('div', undefined, '选课站点已把本次会话踢下线，继续抢课不会成功。请刷新网页并重新登录后再试。'));
+    var buts = el('div', 'szu-auth-buts');
+    var later = el('button', 'szu-p-but', '稍后');
+    later.addEventListener('click', function () {
+      if (mask.parentNode) mask.parentNode.removeChild(mask);
+      authMask = null;
+    });
+    var reload = el('button', 'szu-p-but danger', '刷新网页重新登录');
+    reload.addEventListener('click', function () {
+      root.location.reload();
+    });
+    buts.appendChild(later);
+    buts.appendChild(reload);
+    box.appendChild(buts);
+    mask.appendChild(box);
+    (doc.body || doc.documentElement).appendChild(mask);
+    authMask = mask;
+    return mask;
+  };
 
   U.render = function () {
     if (!panel) return;

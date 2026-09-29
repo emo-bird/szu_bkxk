@@ -141,6 +141,18 @@
     });
   };
 
+  /**
+   * 轮询期间发现登录态失效：弹窗并立刻停掉轮询。
+   * 不停的话会按 pollIntervalMs 一直空转打服务器、刷日志，
+   * 而用户完全不知道需要去重新登录。
+   */
+  function noteAuthLost(kind) {
+    if (kind !== NS.api.RESP_KIND.UNAUTHENTICATED) return false;
+    M.stopPolling();
+    if (NS.ui && NS.ui.authExpired) NS.ui.authExpired();
+    return true;
+  }
+
   /* ---------------- 单独监控：逐课查 capacity.do ---------------- */
 
   M.checkOne = function (tcId) {
@@ -159,6 +171,7 @@
       .then(function (r) {
         if (r.cls.kind !== NS.api.RESP_KIND.OK) {
           NS.warn('查容量失败 [' + r.cls.kind + '] ' + r.cls.msg + ' | ' + tcId);
+          noteAuthLost(r.cls.kind);
           return { remain: null, kind: r.cls.kind, msg: r.cls.msg };
         }
         var remain = NS.api.capacityRemain(r.cls.data);
@@ -217,6 +230,7 @@
         .then(function (r) {
           if (r.kind !== NS.api.RESP_KIND.OK) {
             NS.warn('类别监控拉取失败 [' + r.kind + '] ' + r.msg + ' | ' + category);
+            noteAuthLost(r.kind);
             return all;
           }
           all = all.concat(r.classes || []);
@@ -351,6 +365,7 @@
         }
         item.lastMsg = r.cls.msg || r.cls.kind;
         NS.warn('监控自动抢未成功 [' + r.cls.kind + '] ' + item.lastMsg);
+        noteAuthLost(r.cls.kind);
         return { ok: false, reason: r.cls.kind, msg: item.lastMsg };
       });
   };

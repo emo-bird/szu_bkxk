@@ -21,13 +21,17 @@
 
   T.STATUS = { PENDING: 'pending', RUNNING: 'running', SUCCESS: 'success', FAILED: 'failed' };
 
+  /** 登录态失效的展示文案；同时也是「这条残留不可信」的标记来源。 */
+  T.AUTH_MSG = '登录态失效，请刷新页面重新登录';
+  T.KIND_AUTH = 'auth';
+
   /**
    * 业务返回文案分类。
    * 【顺序重要】先判可重试：`已选人数超过课容量` 同时含「已选」与「容量」，
    * 但它表达的是「满员」，必须算可重试；故 可重试 优先于 终结性。
    */
   var RETRYABLE_RE = /已满|满员|容量|人数/;
-  var TERMINAL_RE = /已选|已添加|选中|重复|冲突|学分|门数|门课|限选|性别|年级|不允许|未开放|无权限|不在/;
+  var TERMINAL_RE = /已选|已添加|选中|重复|冲突|学分|门数|门课|限选|性别|年级|不允许|未开放|无权限|不在|已经存在|存在选课结果/;
 
   /** @returns {'retryable'|'terminal'|'unknown'} */
   T.classifyMsg = function (msg) {
@@ -53,6 +57,20 @@
   var STORE_KEY = 'tasks';
 
   /**
+   * 状态一有变化就立刻重绘悬浮窗。
+   *
+   * 面板原先只靠 ui.js 里 `if (NS.tasks.running) U.render()` 的 1s 轮询刷新，
+   * 于是**停止那一刻的最终状态永远显示不出来**：登录态失效会把 running 置为 false，
+   * 轮询随即不再渲染，用户看到的是停止前那一帧（实测为灰底「该课程已经存在选课结果中」），
+   * 必须手动刷新页面才看得到真正结果。所有变更路径都会走 save()，故挂在这里。
+   */
+  function notify() {
+    try {
+      if (NS.ui && NS.ui.render) NS.ui.render();
+    } catch (e) { /* 界面尚未就绪时忽略 */ }
+  }
+
+  /**
    * 落盘 / 加载。
    * 只存配置与进度，**不存任何凭证**（红线③）。
    * 页面刷新时正在跑的请求会丢，故加载时把 running 态复位为 pending。
@@ -74,6 +92,7 @@
       });
     }
     NS.store.set(STORE_KEY, { seq: T.seq, items: slim });
+    notify();
   };
 
   T.load = function () {
@@ -98,6 +117,15 @@
         addedAt: t.addedAt || Date.now(),
       };
     }).filter(function (t) { return !!t.teachingClassID; });
+    // 上一会话残留的「登录态失效」不是任务本身的问题，刷新后可能已经重新登录。
+    // 原样恢复的话，用户重新登录后的第一眼就是一条早已不成立的红色错误。
+    for (var k = 0; k < T.items.length; k++) {
+      var it = T.items[k];
+      if (it.lastKind !== T.KIND_AUTH && it.lastMsg !== T.AUTH_MSG) continue;
+      it.lastKind = '';
+      it.lastMsg = '';
+      if (it.status === T.STATUS.FAILED) it.status = T.STATUS.PENDING;
+    }
     T.seq = Math.max(data.seq || 0, T.items.length);
     if (T.items.length) NS.info('已恢复 ' + T.items.length + ' 个抢课任务');
     return T.items.length;
@@ -265,10 +293,12 @@
         }
         if (kind === NS.api.RESP_KIND.UNAUTHENTICATED) {
           task.status = T.STATUS.FAILED;
-          task.lastMsg = '登录态失效，请刷新页面重新登录';
+          task.lastMsg = T.AUTH_MSG;
+          task.lastKind = T.KIND_AUTH;
           T.stopped = true;
           T.save();
           NS.error('登录态失效，已停止全部任务');
+          if (NS.ui && NS.ui.authExpired) NS.ui.authExpired();
           return { done: true };
         }
 

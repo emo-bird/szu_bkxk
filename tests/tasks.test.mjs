@@ -277,4 +277,94 @@ test('start：全部 success 时才算 no-task（无可尝试任务）', async (
   eq(r.reason, 'no-task');
 });
 
+// ---------- 显示实时性与登录态失效（真机 HAR: docs/bkxk.szu.edu.cn-3.har） ----------
+
+test('分类：真实响应的「该课程已经存在选课结果中」必须判终结，不能无限重试', () => {
+  // HAR 里连发三次都是这条，它是终结性的；原正则漏判导致被当成 unknown 无限重试
+  eq(T.classifyMsg('该课程已经存在选课结果中'), 'terminal');
+});
+
+test('notify：任何一次落盘都要立即重绘悬浮窗（停止那一刻的最终状态不能丢）', () => {
+  // 原实现只靠 ui.js 的 1s 轮询且条件是 running，一旦停机就再也不会渲染，
+  // 用户看到的是停止前那一帧，必须刷新页面才看得到结果
+  const real = NS.ui;
+  let n = 0;
+  NS.ui = { render() { n += 1; } };
+  try {
+    T.items = [mkTask({ id: 'a' })];
+    T.save();
+    ok(n >= 1, 'save() 后必须通知界面重绘，实际 ' + n);
+  } finally { NS.ui = real; }
+});
+
+test('notify：界面尚未就绪（NS.ui 缺失）时不得抛错', () => {
+  const real = NS.ui;
+  NS.ui = undefined;
+  try {
+    T.save();
+  } finally { NS.ui = real; }
+});
+
+test('load：丢弃上一会话残留的「登录态失效」，不把它当成本轮结果', () => {
+  // 用户实测：刷新重新登录后，第一眼看到的仍是上一轮的红色「登录态失效」
+  NS.store.set('tasks', {
+    seq: 1,
+    items: [{
+      id: 'a', teachingClassID: 'TC1', status: T.STATUS.FAILED, enabled: true,
+      lastMsg: T.AUTH_MSG, lastKind: T.KIND_AUTH, attempts: 3, retryMode: 'smart',
+    }],
+  });
+  T.items = [];
+  T.load();
+  eq(T.items.length, 1);
+  eq(T.items[0].lastMsg, '', '刷新后不得再显示上一轮的登录态失效');
+  eq(T.items[0].lastKind, '');
+  eq(T.items[0].status, T.STATUS.PENDING, '回到等待，重新登录后可直接再抢');
+});
+
+test('load：其它失败文案与状态原样保留，只清登录态失效', () => {
+  NS.store.set('tasks', {
+    seq: 1,
+    items: [{
+      id: 'a', teachingClassID: 'TC1', status: T.STATUS.FAILED, enabled: true,
+      lastMsg: '超出选课学分上限', lastKind: 'terminal', attempts: 1, retryMode: 'smart',
+    }],
+  });
+  T.items = [];
+  T.load();
+  eq(T.items[0].lastMsg, '超出选课学分上限');
+  eq(T.items[0].status, T.STATUS.FAILED);
+});
+
+test('302：登录态失效要置红、停机，并触发「刷新网页重新登录」弹窗', async () => {
+  T.stop();
+  NS.saveSettings({ writeApiEnabled: true });
+  const real = NS.ui;
+  let popped = 0;
+  NS.ui = { render() {}, authExpired() { popped += 1; } };
+  NS.__setFetch(() => Promise.resolve(NS.__resp(JSON.stringify({
+    code: '302', msg: '请求数据与登录者身份不一致，非法请求。',
+  }))));
+  NS.__setSession({
+    token: 'T', currentCampus: JSON.stringify({ code: '01' }),
+    studentInfo: JSON.stringify({ code: '2026280121', electiveBatch: { code: 'B' } }),
+  });
+  try {
+    T.items = [mkTask({ id: 'a' })];
+    await T.attempt(T.items[0]);
+    eq(T.items[0].status, T.STATUS.FAILED, '必须转入停止态（红）');
+    eq(T.items[0].lastMsg, T.AUTH_MSG);
+    eq(T.items[0].lastKind, T.KIND_AUTH);
+    eq(T.stopped, true, '登录态失效必须停止全部任务');
+    // 只断言「弹了」而不是「弹了一次」：前面的用例可能还有请求排在串行队列里，
+    // 它们在本用例换掉 fetch 假实现之后才返回，也会走到同一个分支。
+    // 真正的去重保证在 ui.js 的 authShown 里（同一次页面加载只弹一次），见 log.test.mjs 的静态断言。
+    ok(popped >= 1, '必须弹出登录态失效提示，实际 ' + popped);
+  } finally {
+    NS.ui = real;
+    T.stop();
+    T.stopped = false;
+  }
+});
+
 await run();

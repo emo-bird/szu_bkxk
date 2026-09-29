@@ -113,4 +113,35 @@ test('UI 不得再硬编码时间下限，一律引用 NS.LIMITS', () => {
   ok(UI_SRC.indexOf('NS.LIMITS.clamp') >= 0, 'UI 钳位应走 NS.LIMITS.clamp');
 });
 
+
+// ---------- 悬浮窗显示实时性与登录态失效弹窗（源码静态断言，ui.js 不进 harness） ----------
+
+const TASKS_SRC = readFileSync(join(ROOT, 'src', 'tasks.js'), 'utf8');
+const MONITOR_SRC = readFileSync(join(ROOT, 'src', 'monitor.js'), 'utf8');
+
+test('save() 必须通知界面重绘，否则停止那一刻的最终状态永远显示不出来', () => {
+  ok(/NS\.store\.set\(STORE_KEY[\s\S]{0,80}?notify\(\)/.test(TASKS_SRC), 'T.save 内应调用 notify()');
+  ok(/function notify\(\)/.test(TASKS_SRC), 'notify 应有定义');
+  ok(/NS\.ui && NS\.ui\.render/.test(TASKS_SRC), 'notify 应转调 NS.ui.render');
+});
+
+test('运行中必须有占位文案，避免卡片黄底却整片空白', () => {
+  ok(/RUNNING\)\s*\{[\s\S]{0,200}?请求中…/.test(UI_SRC), '请求中无返回文案时应显示占位');
+});
+
+test('登录态失效弹窗只弹一次，并提供「刷新网页重新登录」按钮', () => {
+  ok(/U\.authExpired = function/.test(UI_SRC), '应有 U.authExpired');
+  ok(/if \(authShown\) return;/.test(UI_SRC), '必须幂等：同一次页面加载只弹一次');
+  ok(/刷新网页重新登录/.test(UI_SRC), '应提供刷新按钮');
+  ok(/location\.reload\(\)/.test(UI_SRC), '刷新按钮应真的重新加载页面');
+});
+
+test('抢课与监控两条路径遇到登录态失效都要停下来提示用户', () => {
+  ok(/RESP_KIND\.UNAUTHENTICATED[\s\S]{0,400}?authExpired/.test(TASKS_SRC), '抢课侧应弹窗');
+  ok(/function noteAuthLost/.test(MONITOR_SRC), '监控侧应有统一处理');
+  ok(/noteAuthLost[\s\S]{0,120}?stopPolling/.test(MONITOR_SRC), '监控侧发现失效应停止轮询');
+  const calls = MONITOR_SRC.match(/noteAuthLost\(r/g) || [];
+  ok(calls.length >= 3, '单独监控/类别监控/自动抢三处都应检查，实际 ' + calls.length);
+});
+
 await run();

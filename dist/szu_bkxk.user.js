@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         深大选课助手 v2
 // @namespace    https://github.com/emo-bird/szu_bkxk
-// @version      2.3.1
+// @version      2.3.2
 // @description  深圳大学选课站点辅助工具：课程列表优化 / 抢课任务 / 容量监控 / 自定义课程与冲突计算。仅供技术学习研究，使用风险自负。
 // @author       emo-bird
 // @match        http://bkxk.szu.edu.cn/*
@@ -58,7 +58,7 @@
   var NS = (root.SZUBKXK = root.SZUBKXK || {});
 
   /** 版本号：由构建脚本从 package.json 注入，勿手改。 */
-  NS.VERSION = '2.3.1';
+  NS.VERSION = '2.3.2';
 
   NS.LOG = {
     MAX: 300,
@@ -1181,6 +1181,18 @@
     });
   };
 
+  /**
+   * 轮询期间发现登录态失效：弹窗并立刻停掉轮询。
+   * 不停的话会按 pollIntervalMs 一直空转打服务器、刷日志，
+   * 而用户完全不知道需要去重新登录。
+   */
+  function noteAuthLost(kind) {
+    if (kind !== NS.api.RESP_KIND.UNAUTHENTICATED) return false;
+    M.stopPolling();
+    if (NS.ui && NS.ui.authExpired) NS.ui.authExpired();
+    return true;
+  }
+
   /* ---------------- 单独监控：逐课查 capacity.do ---------------- */
 
   M.checkOne = function (tcId) {
@@ -1199,6 +1211,7 @@
       .then(function (r) {
         if (r.cls.kind !== NS.api.RESP_KIND.OK) {
           NS.warn('查容量失败 [' + r.cls.kind + '] ' + r.cls.msg + ' | ' + tcId);
+          noteAuthLost(r.cls.kind);
           return { remain: null, kind: r.cls.kind, msg: r.cls.msg };
         }
         var remain = NS.api.capacityRemain(r.cls.data);
@@ -1257,6 +1270,7 @@
         .then(function (r) {
           if (r.kind !== NS.api.RESP_KIND.OK) {
             NS.warn('类别监控拉取失败 [' + r.kind + '] ' + r.msg + ' | ' + category);
+            noteAuthLost(r.kind);
             return all;
           }
           all = all.concat(r.classes || []);
@@ -1391,6 +1405,7 @@
         }
         item.lastMsg = r.cls.msg || r.cls.kind;
         NS.warn('监控自动抢未成功 [' + r.cls.kind + '] ' + item.lastMsg);
+        noteAuthLost(r.cls.kind);
         return { ok: false, reason: r.cls.kind, msg: item.lastMsg };
       });
   };
@@ -1451,13 +1466,17 @@
 
   T.STATUS = { PENDING: 'pending', RUNNING: 'running', SUCCESS: 'success', FAILED: 'failed' };
 
+  /** 登录态失效的展示文案；同时也是「这条残留不可信」的标记来源。 */
+  T.AUTH_MSG = '登录态失效，请刷新页面重新登录';
+  T.KIND_AUTH = 'auth';
+
   /**
    * 业务返回文案分类。
    * 【顺序重要】先判可重试：`已选人数超过课容量` 同时含「已选」与「容量」，
    * 但它表达的是「满员」，必须算可重试；故 可重试 优先于 终结性。
    */
   var RETRYABLE_RE = /已满|满员|容量|人数/;
-  var TERMINAL_RE = /已选|已添加|选中|重复|冲突|学分|门数|门课|限选|性别|年级|不允许|未开放|无权限|不在/;
+  var TERMINAL_RE = /已选|已添加|选中|重复|冲突|学分|门数|门课|限选|性别|年级|不允许|未开放|无权限|不在|已经存在|存在选课结果/;
 
   /** @returns {'retryable'|'terminal'|'unknown'} */
   T.classifyMsg = function (msg) {
@@ -1483,6 +1502,20 @@
   var STORE_KEY = 'tasks';
 
   /**
+   * 状态一有变化就立刻重绘悬浮窗。
+   *
+   * 面板原先只靠 ui.js 里 `if (NS.tasks.running) U.render()` 的 1s 轮询刷新，
+   * 于是**停止那一刻的最终状态永远显示不出来**：登录态失效会把 running 置为 false，
+   * 轮询随即不再渲染，用户看到的是停止前那一帧（实测为灰底「该课程已经存在选课结果中」），
+   * 必须手动刷新页面才看得到真正结果。所有变更路径都会走 save()，故挂在这里。
+   */
+  function notify() {
+    try {
+      if (NS.ui && NS.ui.render) NS.ui.render();
+    } catch (e) { /* 界面尚未就绪时忽略 */ }
+  }
+
+  /**
    * 落盘 / 加载。
    * 只存配置与进度，**不存任何凭证**（红线③）。
    * 页面刷新时正在跑的请求会丢，故加载时把 running 态复位为 pending。
@@ -1504,6 +1537,7 @@
       });
     }
     NS.store.set(STORE_KEY, { seq: T.seq, items: slim });
+    notify();
   };
 
   T.load = function () {
@@ -1528,6 +1562,15 @@
         addedAt: t.addedAt || Date.now(),
       };
     }).filter(function (t) { return !!t.teachingClassID; });
+    // 上一会话残留的「登录态失效」不是任务本身的问题，刷新后可能已经重新登录。
+    // 原样恢复的话，用户重新登录后的第一眼就是一条早已不成立的红色错误。
+    for (var k = 0; k < T.items.length; k++) {
+      var it = T.items[k];
+      if (it.lastKind !== T.KIND_AUTH && it.lastMsg !== T.AUTH_MSG) continue;
+      it.lastKind = '';
+      it.lastMsg = '';
+      if (it.status === T.STATUS.FAILED) it.status = T.STATUS.PENDING;
+    }
     T.seq = Math.max(data.seq || 0, T.items.length);
     if (T.items.length) NS.info('已恢复 ' + T.items.length + ' 个抢课任务');
     return T.items.length;
@@ -1695,10 +1738,12 @@
         }
         if (kind === NS.api.RESP_KIND.UNAUTHENTICATED) {
           task.status = T.STATUS.FAILED;
-          task.lastMsg = '登录态失效，请刷新页面重新登录';
+          task.lastMsg = T.AUTH_MSG;
+          task.lastKind = T.KIND_AUTH;
           T.stopped = true;
           T.save();
           NS.error('登录态失效，已停止全部任务');
+          if (NS.ui && NS.ui.authExpired) NS.ui.authExpired();
           return { done: true };
         }
 
@@ -2901,6 +2946,13 @@
       'border:1px solid #e2ecf7;border-radius:3px;padding:4px;}',
       '#szu-panel .szu-p-empty{color:#999;text-align:center;padding:14px 0;}',
       '#szu-panel .szu-p-sec{font-weight:bold;color:#047ADC;margin:8px 0 4px;}',
+      '#szu-auth-mask{position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483001;',
+      'background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;}',
+      '#szu-auth-mask .szu-auth-box{width:340px;background:#fff;border-radius:6px;padding:16px;',
+      'font:13px/1.6 -apple-system,"Microsoft YaHei",sans-serif;color:#333;',
+      'box-shadow:0 6px 24px rgba(0,0,0,.3);}',
+      '#szu-auth-mask h3{margin:0 0 8px;font-size:14px;color:#c0392b;}',
+      '#szu-auth-mask .szu-auth-buts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}',
     ].join('');
     (root.document.head || root.document.documentElement).appendChild(s);
   };
@@ -3139,9 +3191,10 @@
       }));
       box.appendChild(l2);
 
-      if (t.lastMsg) {
+      // 请求中还没有返回文案时也要占一行，否则卡片是黄底却整片空白，看不出在做什么
+      if (t.lastMsg || t.status === NS.tasks.STATUS.RUNNING) {
         var mcls = 'szu-p-msg' + (t.status === NS.tasks.STATUS.SUCCESS ? ' ok' : (t.status === NS.tasks.STATUS.FAILED ? ' err' : ''));
-        box.appendChild(el('div', mcls, t.lastMsg));
+        box.appendChild(el('div', mcls, t.lastMsg || '请求中…'));
       }
       frag.appendChild(box);
     });
@@ -3494,6 +3547,45 @@
     frag.appendChild(pre);
     return frag;
   }
+
+  /**
+   * 登录态失效弹窗。
+   *
+   * 实测（HAR）：站点把会话踢下线时返回 code=302「请求数据与登录者身份不一致，非法请求。」，
+   * 被限流时返回 code=0「请求过快，请登录后再试」。此时悬浮窗里的一行红字很容易被忽略，
+   * 故改成必须手动处理的弹窗，并直接给「刷新网页重新登录」按钮。
+   * 每次页面加载只弹一次（authShown 不复位），否则多任务/轮询会连续刷屏。
+   */
+  var authMask = null;
+  var authShown = false;
+
+  U.authExpired = function () {
+    if (authShown) return;
+    authShown = true;
+    var doc = root.document;
+    var mask = el('div');
+    mask.id = 'szu-auth-mask';
+    var box = el('div', 'szu-auth-box');
+    box.appendChild(el('h3', undefined, '登录态已失效'));
+    box.appendChild(el('div', undefined, '选课站点已把本次会话踢下线，继续抢课不会成功。请刷新网页并重新登录后再试。'));
+    var buts = el('div', 'szu-auth-buts');
+    var later = el('button', 'szu-p-but', '稍后');
+    later.addEventListener('click', function () {
+      if (mask.parentNode) mask.parentNode.removeChild(mask);
+      authMask = null;
+    });
+    var reload = el('button', 'szu-p-but danger', '刷新网页重新登录');
+    reload.addEventListener('click', function () {
+      root.location.reload();
+    });
+    buts.appendChild(later);
+    buts.appendChild(reload);
+    box.appendChild(buts);
+    mask.appendChild(box);
+    (doc.body || doc.documentElement).appendChild(mask);
+    authMask = mask;
+    return mask;
+  };
 
   U.render = function () {
     if (!panel) return;
