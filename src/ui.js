@@ -600,7 +600,7 @@
       NS.saveSettings({ intervalMs: v });
       NS.queue.intervalMs = Math.min(60000, Math.max(200, v));
     }));
-    frag.appendChild(numberRow('抢课重试间隔(ms)', 'retryIntervalMs', 500, 60000, function (v) {
+    frag.appendChild(numberRow('抢课重试间隔(ms，硬下限 200)', 'retryIntervalMs', 200, 60000, function (v) {
       NS.saveSettings({ retryIntervalMs: v });
     }));
     frag.appendChild(numberRow('监控轮询间隔(ms)', 'pollIntervalMs', 1000, 60000, function (v) {
@@ -669,7 +669,7 @@
       U.toast('已输出到控制台');
     }));
     frag.appendChild(bar);
-    var pre = el('div', 'szu-p-log', NS.LOG.buf.length ? NS.LOG.buf.join('\n') : '(暂无日志)');
+    var pre = el('div', 'szu-p-log', NS.LOG.buf.length ? NS.LOG.buf.slice().reverse().join('\n') : '(暂无日志)');
     frag.appendChild(pre);
     return frag;
   }

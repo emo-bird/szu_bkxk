@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         深大选课助手 v2
 // @namespace    https://github.com/emo-bird/szu_bkxk
-// @version      2.1.0
+// @version      2.2.0
 // @description  深圳大学选课站点辅助工具：课程列表优化 / 抢课任务 / 容量监控 / 自定义课程与冲突计算。仅供技术学习研究，使用风险自负。
 // @author       emo-bird
 // @match        http://bkxk.szu.edu.cn/*
@@ -26,7 +26,7 @@
   var NS = (root.SZUBKXK = root.SZUBKXK || {});
 
   /** 版本号：由构建脚本从 package.json 注入，勿手改。 */
-  NS.VERSION = '2.1.0';
+  NS.VERSION = '2.2.0';
 
   NS.LOG = {
     MAX: 300,
@@ -1502,7 +1502,7 @@
 
   T.retryIntervalMs = function () {
     var s = NS.settings();
-    return NS.util.clamp(s.retryIntervalMs, 500, 60000, 1500);
+    return NS.util.clamp(s.retryIntervalMs, 200, 60000, 1500);
   };
 
   T.active = function () {
@@ -3357,7 +3357,7 @@
       NS.saveSettings({ intervalMs: v });
       NS.queue.intervalMs = Math.min(60000, Math.max(200, v));
     }));
-    frag.appendChild(numberRow('抢课重试间隔(ms)', 'retryIntervalMs', 500, 60000, function (v) {
+    frag.appendChild(numberRow('抢课重试间隔(ms，硬下限 200)', 'retryIntervalMs', 200, 60000, function (v) {
       NS.saveSettings({ retryIntervalMs: v });
     }));
     frag.appendChild(numberRow('监控轮询间隔(ms)', 'pollIntervalMs', 1000, 60000, function (v) {
@@ -3426,7 +3426,7 @@
       U.toast('已输出到控制台');
     }));
     frag.appendChild(bar);
-    var pre = el('div', 'szu-p-log', NS.LOG.buf.length ? NS.LOG.buf.join('\n') : '(暂无日志)');
+    var pre = el('div', 'szu-p-log', NS.LOG.buf.length ? NS.LOG.buf.slice().reverse().join('\n') : '(暂无日志)');
     frag.appendChild(pre);
     return frag;
   }
